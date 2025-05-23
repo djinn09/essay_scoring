@@ -6,11 +6,13 @@ and validating application settings from environment variables, .env files, and 
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
+import spacy
 import yaml
 from dotenv import load_dotenv  # Import python-dotenv
 
@@ -70,6 +72,31 @@ class SemanticConfig(BaseModel):
         env_prefix = "SEMANTIC_"
 
 
+class SpacyConfig(BaseModel):
+    """Configuration for spaCy model.
+
+    Attributes:
+        model_name (str): The name of the spaCy model to use.
+        batch_size (int): Batch size for processing.
+        device (Literal): Device to run the model on ("cpu", "cuda", "mps").
+
+    """
+
+    model_name: str = "en_core_web_sm"
+    batch_size: int = 32
+    device: Literal["cpu", "cuda"] = "cpu"
+
+    class Config:
+        """Configuration class for SpacyConfig.
+
+        Attributes:
+            env_prefix (str): The prefix for environment variables.
+
+        """
+
+        env_prefix = "SPACY_"
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables.
 
@@ -83,13 +110,17 @@ class Settings(BaseSettings):
     env: str = "dev"
     app: AppConfig = AppConfig()
     semantic: SemanticConfig = SemanticConfig()
-
+    spacy_config: SpacyConfig = SpacyConfig()
     model_config = SettingsConfigDict(
         env_file=None,  # Explicitly disable default .env loading here if we manually load
         env_file_encoding="utf-8",  # Still useful if a default .env was used
         env_nested_delimiter="__",
         extra="ignore",
     )
+
+    if spacy_config.device == "cuda":
+        spacy.prefer_gpu()  # type: ignore  # noqa: PGH003
+    # --- Load SpaCy Model (used for both coreference resolution and POS similarity scoring) ---
 
     @field_validator("env")
     @classmethod
@@ -132,10 +163,10 @@ def get_settings() -> Settings:
     """
     effective_env = os.getenv("APP_ENV", "dev").lower()
     if effective_env not in VALID_ENVS:
-        print(f"Warning: APP_ENV='{effective_env}' is not one of {VALID_ENVS}. Falling back to 'dev'.")
+        logging.info(f"Warning: APP_ENV='{effective_env}' is not one of {VALID_ENVS}. Falling back to 'dev'.")
         effective_env = "dev"
 
-    print(f"--- Loading settings for environment: '{effective_env}' ---")
+    logging.info(f"--- Loading settings for environment: '{effective_env}' ---")
 
     config_dir = Path(__file__).parent
 
@@ -144,11 +175,11 @@ def get_settings() -> Settings:
     env_filename = f"{effective_env}.env"
     env_file_path = config_dir / env_filename
     if env_file_path.exists() and env_file_path.is_file():
-        print(f"Loading environment variables from: {env_file_path}")
+        logging.info(f"Loading environment variables from: {env_file_path}")
         load_dotenv(dotenv_path=env_file_path, override=False)  # override=False is default
     # set to True if you want .env to win over existing env vars
     else:
-        print(f"Info: Environment file not found at {env_file_path}. Skipping manual .env load.")
+        logging.info(f"Info: Environment file not found at {env_file_path}. Skipping manual .env load.")
 
     # --- Load YAML config based on environment ---
     yaml_config_path = config_dir / "envs" / f"{effective_env}.yaml"
@@ -159,15 +190,15 @@ def get_settings() -> Settings:
                 loaded_yaml = yaml.safe_load(f)
                 if isinstance(loaded_yaml, dict):
                     file_config = loaded_yaml
-                    print(f"Successfully loaded YAML config from: {yaml_config_path}")
+                    logging.info(f"Successfully loaded YAML config from: {yaml_config_path}")
                 else:
-                    print(f"Warning: YAML file {yaml_config_path} did not contain a dictionary. Ignoring.")
+                    logging.info(f"Warning: YAML file {yaml_config_path} did not contain a dictionary. Ignoring.")
         except yaml.YAMLError as e:
-            print(f"Error parsing YAML file {yaml_config_path}: {e}")
+            logging.info(f"Error parsing YAML file {yaml_config_path}: {e}")
         except Exception as e:
-            print(f"Error reading file {yaml_config_path}: {e}")
+            logging.info(f"Error reading file {yaml_config_path}: {e}")
     else:
-        print(f"Info: YAML config file not found at {yaml_config_path}. Skipping.")
+        logging.info(f"Info: YAML config file not found at {yaml_config_path}. Skipping.")
 
     # --- Instantiate Settings ---
     try:
@@ -184,7 +215,7 @@ def get_settings() -> Settings:
         if "env" not in init_data:  # Only set 'env' from effective_env if not in YAML
             init_data["env"] = effective_env
         elif init_data.get("env", "").lower() != effective_env:
-            print(
+            logging.info(
                 f"Warning: YAML file specifies 'env: {init_data['env']}', "
                 f"which differs from the loading environment '{effective_env}'. "
                 f"The YAML value will be used for settings.env.",
@@ -196,7 +227,7 @@ def get_settings() -> Settings:
         if settings.env != effective_env and (
             "env" not in file_config or file_config.get("env", "").lower() != settings.env.lower()
         ):
-            print(
+            logging.info(
                 f"Warning: Final settings.env ('{settings.env}') differs from the "
                 f"loading environment ('{effective_env}'). This might happen if environment "
                 f"variables (ENV, not from {effective_env}.env if override=False) set 'ENV' differently.",
@@ -208,27 +239,31 @@ def get_settings() -> Settings:
         ):
             pass  # YAML explicitly set it, already warned above.
         else:
-            print(f"Settings.env correctly reflects loading environment: '{settings.env}'")
+            logging.info(f"Settings.env correctly reflects loading environment: '{settings.env}'")
 
-        print("Settings loaded successfully.")
+        logging.info("Settings loaded successfully.")
         return settings
     except ValidationError as e:
-        print(f"Error validating settings: {e}")
+        logging.info(f"Error validating settings: {e}")
         msg = "Failed to load or validate application settings."
         raise SystemExit(msg) from e
     except Exception as e:
-        print(f"An unexpected error occurred during settings initialization: {e}")
+        logging.info(f"An unexpected error occurred during settings initialization: {e}")
         msg = "Critical error during settings initialization."
         raise SystemExit(msg) from e
 
+# create a settings instance to trigger loading
+# This is not necessary if you call get_settings() directly in your code.
+settings = get_settings()
+spacy_model = spacy.load(settings.spacy_config.model_name)
 
 # --- Example Usage ---
 if __name__ == "__main__":
     # --- Setup for Example ---
-    print("--- Running Example ---")
+    logging.info("--- Running Example ---")
     # Simulate setting the environment variable that controls which .env and .yaml to load
     os.environ["APP_ENV"] = "dev"
-    print(f"APP_ENV set to: {os.getenv('APP_ENV')}")
+    logging.info(f"APP_ENV set to: {os.getenv('APP_ENV')}")
 
     script_dir = Path(__file__).parent
     envs_yaml_dir = script_dir / "envs"
@@ -245,7 +280,7 @@ if __name__ == "__main__":
             },
             f,
         )
-    print(f"Created dummy file: {dev_yaml_path}")
+    logging.info(f"Created dummy file: {dev_yaml_path}")
 
     # Create dummy dev.env file (in script directory)
     dev_env_path = script_dir / "dev.env"
@@ -253,29 +288,26 @@ if __name__ == "__main__":
         f.write('APP__VERSION="1.1-from-dev.env"\n')
         f.write("SEMANTIC__BATCH_SIZE=70\n")
         f.write('APP__NAME="App Name from dev.env"\n')  # Will be overridden by YAML
-    print(f"Created dummy file: {dev_env_path}")
+    logging.info(f"Created dummy file: {dev_env_path}")
 
     # Simulate setting *actual* process environment variables (these override .env file if load_dotenv(override=False))
     # To test .env override, comment these out or set override=True in load_dotenv
     os.environ["APP__VERSION"] = "1.2-from-PROCESS-ENV"
     os.environ["SEMANTIC__DEVICE"] = "cuda"
-    print("Simulated PROCESS environment variables set:")
-    print(f"  APP__VERSION={os.getenv('APP__VERSION')}")  # Should win over dev.env's APP__VERSION
-    print(f"  SEMANTIC__DEVICE={os.getenv('SEMANTIC__DEVICE')}")
+    logging.info("Simulated PROCESS environment variables set:")
+    logging.info(f"  APP__VERSION={os.getenv('APP__VERSION')}")  # Should win over dev.env's APP__VERSION
+    logging.info(f"  SEMANTIC__DEVICE={os.getenv('SEMANTIC__DEVICE')}")
 
-    # --- Load Settings ---
-    settings = get_settings()
-
-    # --- Print Final Settings ---
-    print("\n--- Final Settings ---")
+    # --- logging.info Final Settings ---
+    logging.info("\n--- Final Settings ---")
     if settings:
-        print(f"Settings.env: {settings.env}")
-        print(f"App Name: {settings.app.name}")
-        print(f"App Version: {settings.app.version}")
-        print(f"App Debug: {settings.app.debug}")
-        print(f"Semantic Model: {settings.semantic.model_name}")
-        print(f"Semantic Batch Size: {settings.semantic.batch_size}")
-        print(f"Semantic Device: {settings.semantic.device}")
+        logging.info(f"Settings.env: {settings.env}")
+        logging.info(f"App Name: {settings.app.name}")
+        logging.info(f"App Version: {settings.app.version}")
+        logging.info(f"App Debug: {settings.app.debug}")
+        logging.info(f"Semantic Model: {settings.semantic.model_name}")
+        logging.info(f"Semantic Batch Size: {settings.semantic.batch_size}")
+        logging.info(f"Semantic Device: {settings.semantic.device}")
 
     # Expected with default load_dotenv(override=False):
     # Settings.env: dev (from APP_ENV, as not overridden by YAML in this test setup)
@@ -287,7 +319,7 @@ if __name__ == "__main__":
     # Semantic Device: cuda-from-PROCESS-ENV (from PROCESS-ENV, overrides model default)
 
     # --- Clean up ---
-    print("\n--- Cleaning up dummy files ---")
+    logging.info("\n--- Cleaning up dummy files ---")
     dev_yaml_path.unlink(missing_ok=True)
     from contextlib import suppress
 
@@ -303,4 +335,4 @@ if __name__ == "__main__":
     # If APP__NAME was set in process env for testing, clean it too
     if "APP__NAME" in os.environ:
         del os.environ["APP__NAME"]
-    print("Cleanup complete.")
+    logging.info("Cleanup complete.")

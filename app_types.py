@@ -334,3 +334,4 @@ class EssayScores(BaseModel):
     similarity_metrics: SimilarityMetrics
     text_score: SinglePairAnalysisResult
     keyword_matcher: KeywordMatcherScore
+    pos_score: float | None = 0.0

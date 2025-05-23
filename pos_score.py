@@ -3,23 +3,21 @@ from __future__ import annotations
 from timeit import default_timer as timer
 
 import nltk  # For sentence tokenization in POS scoring
-import spacy
 
-# --- Load SpaCy Model (used for both coreference resolution and POS similarity scoring) ---
-nlp = spacy.load("en_core_web_md")
-print("Loaded SpaCy model 'en_core_web_md' for POS.")
+from config import spacy_model
 
+nlp = spacy_model
 SIMILARITY_THRESHOLD = 0.3
 
 
 def extract_pos_combinations(text: str) -> list[list[str]]:
-    """
-    Tokenize input text into sentences and extract POS combinations:
+    """Tokenize input text into sentences and extract POS combinations:
     - Triplets: (ProperNoun, Verb, Noun)
-    - Duplets: (ProperNoun, Verb) or (ProperNoun, Noun)
+    - Duplets: (ProperNoun, Verb) or (ProperNoun, Noun).
 
     Returns:
         List of combinations per sentence (order preserved by sentence processing).
+
     """
     if not nlp:
         print("SpaCy model not available. POS extraction skipped.")
@@ -33,7 +31,7 @@ def extract_pos_combinations(text: str) -> list[list[str]]:
         sentences = [s.strip() for s in lower.split(".") if s.strip()]
 
     combos: list[list[str]] = []
-    for sent_idx, sent in enumerate(sentences):
+    for _, sent in enumerate(sentences):
         doc = nlp(sent)
         props, verbs, nouns = set(), set(), set()
 
@@ -92,11 +90,10 @@ def match_duplet(elem1_a: str, elem2_a: str, elem1_b: str, elem2_b: str) -> bool
 
 
 def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]]) -> float:
-    """
-    Compute POS overlap score:
+    """Compute POS overlap score:
     - Iterates through each model combination and candidate combination
     - Logs similarity scores and indices for each comparison
-    - Returns fraction of model combos matched
+    - Returns fraction of model combos matched.
     """
     if not model_list or not cand_list:
         return 0.0
@@ -133,7 +130,7 @@ def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]
     return matched / len(model_list)
 
 
-def score_pos_with_coref(model_text: str, candidate_text: str) -> float:
+def score_pos(model_text: str, candidate_text: str) -> float:
     """Main entry point for POS-based scoring with optional coreference:
     - Extract POS combinations from both texts
     - Calculate and log overlap score details
@@ -172,4 +169,4 @@ if __name__ == "__main__":
         for idx, (m, c) in enumerate(examples, 1):
             print(f"\n--- Example {idx} ---")
             print(f"Model: {m}\nCandidate: {c}")
-            print(f"Score: {score_pos_with_coref(m, c):.4f}")
+            print(f"Score: {score_pos(m, c):.4f}")

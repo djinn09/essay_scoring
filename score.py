@@ -10,6 +10,7 @@ from __future__ import annotations
 from app_types import EssayScores, KeywordMatcherConfig
 from key_word_match import SimilarityCalculator
 from keyword_matcher import KeywordMatcher
+from pos_score import score_pos
 from semantic_match import SemanticCosineSimilarity
 from settings import semantic_model, settings, similarity_config
 from text_features import SinglePairAnalysisInput, run_single_pair_text_analysis
@@ -51,6 +52,7 @@ def score_essay(essay: str, reference: str) -> EssayScores:
     config_pos = KeywordMatcherConfig(use_pos_tagging=True)
     keyword_matcher = KeywordMatcher(config=config_pos)
     keyword_matcher_results = keyword_matcher.find_matches_and_score(reference, essay)
+    essay_pos_score = score_pos(reference, essay)
     similarity_metrics = keyword_similarity_calculator.calculate_single_pair(reference, essay)
     if semantic_score is not None:
         return EssayScores(
@@ -58,9 +60,11 @@ def score_essay(essay: str, reference: str) -> EssayScores:
             similarity_metrics=similarity_metrics,
             text_score=individual_pair_results,
             keyword_matcher=keyword_matcher_results.keywords_matcher_result,
+            pos_score=essay_pos_score,
         )
     return EssayScores(
         similarity_metrics=similarity_metrics,
         text_score=individual_pair_results,
         keyword_matcher=keyword_matcher_results.keywords_matcher_result,
+        pos_score=essay_pos_score,
     )
