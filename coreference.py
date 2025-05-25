@@ -108,10 +108,14 @@ NEUTER_NOUNS = {
 }
 
 # --- Load Model ---
+# Note: The spaCy model is loaded globally when this module is imported.
+# This can affect startup time and makes the module less suitable for environments
+# where spaCy or the specific model is not available or needed immediately.
+# Consider deferring model loading to an initialization function or class constructor if needed.
 try:
     nlp = spacy.load("en_core_web_md")
 except OSError:
-    print("Downloading en_core_web_md model...")
+    print("Downloading en_core_web_md model for coreference resolution...")
     spacy.cli.download("en_core_web_md")
     nlp = spacy.load("en_core_web_md")
 
@@ -325,22 +329,38 @@ def find_subject(token: Token) -> Token | None:
     :return: The subject token, or None if not found.
     """
     head = token.head
+    # Traverse up from the token until a verb or the root of the sentence is found.
     while head.pos_ not in ("VERB", "AUX") and head.dep_ != "ROOT" and head.head != head:
-        head = head.head
+        head = head.head # Move to the head of the current token.
+
+    # If a verb or the root is found, look for its subject(s).
     if head.pos_ in ("VERB", "AUX") or head.dep_ == "ROOT":
+        # Prioritize nominal subjects (nsubj, nsubjpass).
         subjects = [c for c in head.children if c.dep_ in ("nsubj", "nsubjpass")]
         if not subjects:
+            # If no nominal subject, look for clausal subjects (csubj, csubjpass).
             subjects = [c for c in head.children if c.dep_ in ("csubj", "csubjpass")]
+
         if subjects:
-            core_subj = subjects[0]
+            core_subj = subjects[0] # Take the first subject found.
+            # Refinement: If the subject is part of a compound noun, try to get the true head of the compound.
+            # This handles cases like "The big black cat" -> "cat" not "The".
+            # Ensure the head of the compound still precedes the original token to avoid jumping too far.
             while core_subj.dep_ == "compound" and core_subj.head.i < token.i:
                 core_subj = core_subj.head
+            # Further refinement: If the core subject isn't a PERSON or PROPN,
+            # check its subtree for a PERSON entity that precedes the core_subj itself.
+            # This aims to find a person if the direct subject is more general (e.g., "His team" -> "His").
             if core_subj.ent_type_ != "PERSON" and core_subj.pos_ != "PROPN":
-                person_in_subj = [t for t in core_subj.subtree if t.ent_type_ == "PERSON" and t.i < core_subj.i]
+                # Search within the subject's subtree for a PERSON entity appearing before the subject token.
+                person_in_subj = [
+                    t for t in core_subj.subtree
+                    if t.ent_type_ == "PERSON" and t.i < core_subj.i
+                ]
                 if person_in_subj:
-                    return person_in_subj[-1]
+                    return person_in_subj[-1] # Return the last such PERSON found (closest).
             return core_subj
-    return None
+    return None # No subject found.
 
 
 def find_speaker(pronoun: Token) -> Token | None:
@@ -353,76 +373,99 @@ def find_speaker(pronoun: Token) -> Token | None:
     :return: The token likely referring to the speaker, or None.
     """
     current = pronoun
+    # Traverse up the dependency tree within the same sentence.
     while current.head != current and current.sent == pronoun.sent:
         governing_verb = current.head
-        if governing_verb.lemma_ in REPORTING_VERBS and (
-            current.dep_ in ("ccomp", "advcl", "xcomp") or (current.dep_ == "dobj" and current.pos_ == "PRON")
-        ):
-            speaker = find_subject(governing_verb)
+
+        # Scenario 1: Pronoun is part of a clause governed by a reporting verb.
+        # e.g., Mary said, "I am tired." -> "I" is in ccomp of "said".
+        # e.g., Mary asked him if he was okay -> "he" is in advcl/ccomp of "asked"
+        # e.g., Mary told him "You are right" -> "You" can be dobj of "told" if "You are right" is direct object.
+        if governing_verb.lemma_ in REPORTING_VERBS and \
+           (current.dep_ in ("ccomp", "advcl", "xcomp") or \
+            (current.dep_ == "dobj" and current.pos_ == "PRON")): # "dobj" more likely if pronoun is object of reporting verb
+            speaker = find_subject(governing_verb) # The subject of the reporting verb is the speaker.
             return speaker if speaker else None
 
-        if current.dep_ == "nsubj" and governing_verb.dep_ == "ccomp" and governing_verb.head.lemma_ in REPORTING_VERBS:
-            reporting_verb = governing_verb.head
-            speaker = find_subject(reporting_verb)
+        # Scenario 2: Pronoun is the subject of a clause that itself is governed by a reporting verb.
+        # e.g., The report stated that "He was seen..." -> "He" is nsubj of "was seen", "was seen" is ccomp of "stated".
+        if current.dep_ == "nsubj" and \
+           governing_verb.dep_ == "ccomp" and \
+           governing_verb.head.lemma_ in REPORTING_VERBS:
+            reporting_verb = governing_verb.head # This is the actual reporting verb.
+            speaker = find_subject(reporting_verb) # The subject of this reporting verb.
             return speaker if speaker else None
 
-        current = current.head
+        current = current.head # Move up the tree.
 
-    return None
+    return None # No speaker found through these patterns.
 
 
 def is_pleonastic_it(token: Token) -> bool:
     """Return True if the token 'it' is used pleonastically (e.g., weather, time, cleft)."""
-    if token.lemma_ != "it":
+    if token.lemma_ != "it": # Must be the pronoun 'it'.
         return False
 
+    # Rule 1: Expletive 'it' (e.g., "It is raining.")
+    # SpaCy often tags expletive 'it' with dep_ == "expl".
     if token.dep_ == "expl":
         return True
 
+    # Further checks if 'it' is a nominal subject (nsubj).
     if token.dep_ != "nsubj":
-        return False
+        return False # If 'it' is not a subject here, less likely to be pleonastic by these rules.
 
-    verb = token.head
+    verb = token.head # The verb governed by 'it'.
 
     if verb.pos_ == "VERB":
+        # Rule 2: Weather verbs (e.g., "It rains.")
         is_weather_verb = verb.lemma_ in {"rain", "snow", "hail", "thunder", "lighten"}
         if is_weather_verb:
             return True
 
-        if verb.lemma_ == "be":
-            attr = next((c for c in verb.children if c.dep_ == "attr"), None)
+        # Rule 3: 'It is' + time/weather attribute (e.g., "It is sunny.", "It is 3 o'clock.")
+        if verb.lemma_ == "be": # If the verb is 'to be'.
+            attr = next((c for c in verb.children if c.dep_ == "attr"), None) # Find attribute complement.
             if attr:
                 subtree = list(attr.subtree)
+                # Check for TIME entity or common time/weather keywords in the attribute.
                 has_time_ent = attr.ent_type_ == "TIME" or any(t.ent_type_ == "TIME" for t in subtree)
                 has_time_keyword = any(
-                    t.text.lower() in {"o'clock", "pm", "am", "noon", "midnight", "raining", "snowing"} for t in subtree
+                    t.text.lower() in {"o'clock", "pm", "am", "noon", "midnight", "raining", "snowing", "sunny", "cloudy"} for t in subtree
                 )
                 if has_time_ent or has_time_keyword:
                     return True
 
-        if verb.lemma_ in {"seem", "appear", "happen", "matter", "turn out", "look", "sound"} and any(
-            c.dep_ in {"ccomp", "csubj", "xcomp", "acomp", "advcl"} for c in verb.children
-        ):
+        # Rule 4: Verbs of seeming/appearing with clausal complements
+        # (e.g., "It seems that...", "It appears to be...")
+        if verb.lemma_ in {"seem", "appear", "happen", "matter", "turn out", "look", "sound"} and \
+           any(c.dep_ in {"ccomp", "csubj", "xcomp", "acomp", "advcl"} for c in verb.children):
             return True
 
-    elif verb.lemma_ == "be" and verb.pos_ == "AUX":
+    # Rule 5: Auxiliary 'be' + time/numeric attribute or cleft constructions
+    elif verb.lemma_ == "be" and verb.pos_ == "AUX": # If 'it' is subject of an auxiliary 'be'.
         attr = next((c for c in verb.children if c.dep_ == "attr"), None)
         if attr:
             subtree = list(attr.subtree)
+            # Check for time-related attributes.
             is_time_attr = (
-                attr.ent_type_ == "TIME"
-                or any(t.ent_type_ == "TIME" for t in subtree)
-                or any(t.text.lower() in {"o'clock", "pm", "am", "noon", "midnight"} for t in subtree)
+                attr.ent_type_ == "TIME" or
+                any(t.ent_type_ == "TIME" for t in subtree) or
+                any(t.text.lower() in {"o'clock", "pm", "am", "noon", "midnight"} for t in subtree)
             )
+            # Check for "almost" + number (e.g., "It is almost 5.")
             has_almost = any(c.lemma_ == "almost" and c.dep_ == "advmod" for c in attr.children)
             is_num_like = attr.like_num or (attr.text and attr.text[0].isdigit())
 
             if is_time_attr or (has_almost and is_num_like):
                 return True
 
+            # Rule 6: Cleft sentences (e.g., "It was John who left.")
+            # Check if 'attr' is the head of a relative clause starting with WP/WDT ('who', 'which', 'that').
+            # A more robust cleft check might involve looking at the structure more deeply.
             relcl = next((c for c in verb.children if c.dep_ == "relcl" and c.head == attr), None)
-            if relcl and relcl[0].tag_ in ["WP", "WDT"]:
-                return True  # Cleft
+            if relcl and relcl.sent == verb.sent and relcl[0].tag_ in ["WP", "WDT"]: # Ensure relcl starts with relative pronoun.
+                return True  # Likely a cleft construction.
 
     return False
 
@@ -680,115 +723,118 @@ def rule_based_coref_resolution_v4(
                             cand_rule_detail += " + Proximity"
 
                         # Semantic Similarity Fallback (Optional)
+                        # Semantic Similarity Fallback (Optional & Experimental)
+                        # If enabled and other heuristics provide a low score,
+                        # check word vector similarity as a potential tie-breaker or confidence booster.
                         if use_similarity_fallback and cand_score < similarity_threshold:
                             try:
-                                # Calculate similarity using word vectors
+                                # Calculate similarity using pre-trained word vectors from the spaCy model.
                                 similarity = token.similarity(candidate)
                                 if similarity >= similarity_threshold:
-                                    # Scale similarity to a score contribution
-                                    sim_score = (
-                                        0.1 + (similarity - similarity_threshold) / (1.0 - similarity_threshold) * 0.3
+                                    # Scale similarity to a score contribution.
+                                    # This scaling is arbitrary and can be tuned.
+                                    sim_score_contribution = (
+                                        0.1 + (similarity - similarity_threshold) / (1.0 - similarity_threshold) * 0.3 # Max 0.4 if similarity is 1.0
                                     )
-                                    # Only use similarity if it improves the score
-                                    if sim_score > cand_score:
-                                        cand_score = max(cand_score, sim_score)
-                                        cand_rule_detail = f"Similarity ({similarity:.2f})"
-                            except UserWarning:
-                                pass  # Ignore warnings if vectors are missing
+                                    # Only apply similarity if it meaningfully improves the score
+                                    # and doesn't override a strong syntactic/NER match.
+                                    if sim_score_contribution > (cand_score * 0.1): # Heuristic: adds at least 10%
+                                        cand_score += sim_score_contribution # Add to existing score
+                                        cand_score = min(cand_score, 0.9) # Cap to avoid over-reliance
+                                        cand_rule_detail = f"{cand_rule_detail.replace('Agreement + Proximity','').strip()} + Similarity ({similarity:.2f})"
+                                        cand_rule_detail = cand_rule_detail.strip().lstrip("+ ")
+                            except UserWarning: # spaCy raises UserWarning if vectors are not available or words are OOV.
+                                pass  # Ignore warnings if vectors are missing for some tokens.
 
-                        # Add candidate if score is above minimum threshold
-                        if cand_score > 0.05:  # noqa: PLR2004
+                        # Add candidate to the list if its score is above a minimum threshold.
+                        if cand_score > 0.05:  # noqa: PLR2004 - magic number, threshold for consideration
                             potential_candidates.append(
                                 {
                                     "token": candidate,
                                     "score": cand_score,
-                                    "reason": f"Std Pronoun: {cand_rule_detail.strip()}",
+                                    "reason": f"Std Pronoun: {cand_rule_detail.strip()}", # Construct rule name
                                     "distance": distance,
                                 },
                             )
-                    # Select best candidate
+                    # After checking all candidates in the window, select the best one.
                     if potential_candidates:
+                        # Sort by score (descending) then distance (ascending).
                         potential_candidates.sort(key=lambda x: (-x["score"], x["distance"]))
-                        best_candidate_info = potential_candidates[0]
+                        best_candidate_info = potential_candidates[0] # The best candidate.
 
-                # --- Set antecedent from best candidate if found in backward search ---
-                # This runs if a backward search (Rule 2b/4 or Rule 5) found candidates,
-                # and no high-priority rule (Rule 1, 2a, 3) already set the antecedent.
+                # --- Update main antecedent variables if a backward search found something ---
+                # This applies if `best_candidate_info` was populated by either Rule 2b/4 or Rule 5,
+                # and no high-priority rule (Rule 1, 2a, 3) had already found an `antecedent`.
                 if best_candidate_info and not antecedent:
                     antecedent = best_candidate_info["token"]
                     confidence = best_candidate_info["score"]
                     rule = best_candidate_info["reason"]
 
             # --- B. Proper Noun (PN) Coreference Logic ---
-            # Check if the current token is a proper noun
-            elif token.pos_ == "PROPN":
-                potential_pn_antecedents = []  # Store candidate dicts
-                # Search backwards for potential PN antecedents
+            # This section handles cases where the current `token` is a proper noun.
+            # It attempts to link it to a preceding proper noun.
+            elif token.pos_ == "PROPN": # Check if the current token is a proper noun
+                potential_pn_antecedents = [] # List to store potential PN antecedent candidates
+                # Search backwards from the token before the current PN.
                 for j in range(token.i - 1, start_search_token_idx - 1, -1):
-                    if j < 0:
-                        break
-                    candidate = doc[j]
-                    # Candidate must be PERSON Proper Noun for this simple rule
+                    if j < 0: break # Boundary condition
+                    candidate = doc[j] # Potential antecedent token
+
+                    # Candidate must be a Proper Noun and a PERSON entity for this simplified rule.
+                    # This can be expanded to other entity types (ORG, GPE) with appropriate logic.
                     if candidate.pos_ == "PROPN" and candidate.ent_type_ == "PERSON":
-                        # Case 1: Exact Match
+                        # Rule PN-1: Exact Match
+                        # e.g., "Smith" ... "Smith"
                         if candidate.text == token.text:
-                            potential_pn_antecedents.append(
-                                {
-                                    "token": candidate,
-                                    "score": 0.98,
-                                    "type": "Exact",
-                                    "rule": "PN Exact Match",
-                                    "distance": token.i - j,
-                                },
-                            )
-                        # Case 2: Partial Match (Full Name -> Last Name)
+                            potential_pn_antecedents.append({
+                                "token": candidate, "score": 0.98, "type": "Exact",
+                                "rule": "PN Exact Match", "distance": token.i - j
+                            })
+                        # Rule PN-2: Partial Match (e.g., Full Name -> Last Name)
+                        # e.g., "John Smith" ... "Smith"
                         candidate_is_longer = len(candidate.text.split()) > 1
                         token_is_shorter = len(token.text.split()) == 1
-                        # Check if candidate ends with the token text (e.g., "John Smith" ends with "Smith")
+                        # Check if the candidate's text ends with the current token's text (e.g., "John Smith" ends with "Smith").
                         if candidate_is_longer and token_is_shorter and candidate.text.endswith(token.text):
-                            # Check if token is likely standalone (not preceded immediately by another PROPN)
+                            # Heuristic: check if `token` (e.g. "Smith") is likely standalone,
+                            # not part of another multi-word proper noun immediately preceding it.
+                            # E.g., avoid matching "Smith" in "James Smith" to "Smith" in "Mr. Smith".
                             prev_token = doc[token.i - 1] if token.i > 0 else None
-                            likely_standalone = not (
-                                prev_token and prev_token.pos_ == "PROPN" and prev_token.ent_iob_ != "O"
-                            )
-                            if likely_standalone:
-                                potential_pn_antecedents.append(
-                                    {
-                                        "token": candidate,
-                                        "score": 0.95,
-                                        "type": "Partial",  # Slightly lower score than exact
-                                        "rule": "PN Partial Match (Last)",
-                                        "distance": token.i - j,
-                                    },
-                                )
-                # Select the best PN match
+                            is_part_of_prev_pn = (prev_token and prev_token.pos_ == "PROPN" and prev_token.ent_iob_ != "O")
+                            if not is_part_of_prev_pn: # If token is likely standalone or starts a new PN.
+                                potential_pn_antecedents.append({
+                                    "token": candidate, "score": 0.95, "type": "Partial", # Slightly lower score than exact
+                                    "rule": "PN Partial Match (Last Name)", "distance": token.i - j
+                                })
+                # Select the best PN match if any candidates were found.
                 if potential_pn_antecedents:
-                    # Sort by score (desc), then distance (asc)
+                    # Sort by score (descending), then distance (ascending).
                     potential_pn_antecedents.sort(key=lambda x: (-x["score"], x["distance"]))
-                    best_pn_match_info = potential_pn_antecedents[0]  # Tentative best (highest score/closest)
+                    best_pn_match_info = potential_pn_antecedents[0] # Initial best match.
 
-                    # *** PN Selection Override: Prioritize Partial over Exact ***
-                    # If the best match is Exact, check if a corresponding Partial match exists
+                    # PN Selection Override Logic:
+                    # Prefer a partial match (full name as antecedent) if an exact match (e.g., last name)
+                    # is part of that full name. E.g., if "Smith" (current token) matches "Smith" (exact antecedent)
+                    # but also "John Smith" (partial antecedent), prefer "John Smith".
                     if best_pn_match_info["type"] == "Exact":
                         for cand_info in potential_pn_antecedents:
-                            # If a Partial match exists whose antecedent *contains* the Exact match's text
-                            if (
-                                cand_info["type"] == "Partial"
-                                and best_pn_match_info["token"].text in cand_info["token"].text.split()
-                            ):
-                                best_pn_match_info = cand_info  # Override with the partial match
-                                break  # Found the preferred partial match
+                            if cand_info["type"] == "Partial" and \
+                               best_pn_match_info["token"].text in cand_info["token"].text.split():
+                                # If a partial match's antecedent token (e.g. "John Smith") contains
+                                # the exact match's antecedent token text (e.g. "Smith").
+                                best_pn_match_info = cand_info # Override with the more complete partial match.
+                                break # Found preferred partial, no need to check further.
 
-                    # Final check and assignment
+                    # Final check and assignment for PN coreference.
                     best_pn_token = best_pn_match_info["token"]
-                    # Avoid self-reference and linking to already processed mentions
+                    # Avoid self-reference and linking to mentions that have already been resolved as mentions themselves.
                     if best_pn_token.i != token.i and best_pn_token.i not in processed_mentions:
                         antecedent = best_pn_token
                         confidence = best_pn_match_info["score"]
                         rule = best_pn_match_info["rule"]
 
-            # --- Store Result (Internal Token Format) ---
-            # If an antecedent was found for the current token, store the pair
+            # --- Store Result (if an antecedent was found) ---
+            # This section is reached after all rules for the current `token` have been evaluated.
             if antecedent and antecedent.i != token.i:
                 coref_results_internal.append((token, antecedent, round(confidence, 2), rule))
                 # Mark this token as processed so it isn't considered as an antecedent later

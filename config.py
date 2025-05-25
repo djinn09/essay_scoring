@@ -33,33 +33,32 @@ class AppConfig(BaseModel):
     Attributes:
         name (str): The name of the application.
         version (str): The version of the application.
-        debug (bool): Whether debug mode is enabled.
-
+        debug (bool): Flag to enable or disable debug mode.
+        log_level (str): The logging level for the application (e.g., INFO, DEBUG).
     """
 
-    name: str = "Essay Grader"
-    version: str = "1.0"
-    debug: bool = False
-    log_level: str = "INFO"
+    name: str = Field("Essay Grader", description="The name of the application.")
+    version: str = Field("1.0", description="The version of the application.")
+    debug: bool = Field(False, description="Whether debug mode is enabled, typically more verbose.")
+    log_level: str = Field("INFO", description="The logging level (e.g., DEBUG, INFO, WARNING).")
 
 
 class SemanticConfig(BaseModel):
     """Configuration for semantic similarity calculations.
 
     Attributes:
-        model_name (str): The name of the model to use.
-        chunk_size (int): Size of text chunks for processing.
-        overlap (int): Overlap between text chunks.
-        batch_size (int): Batch size for model inference.
-        device (Literal): Device to run the model on ("cpu", "cuda", "mps").
-
+        model_name (str): Name or path of the SentenceTransformer model to be used.
+        chunk_size (int): Target character size for splitting texts into chunks before embedding.
+        overlap (int): Number of characters to overlap between adjacent chunks.
+        batch_size (int): Batch size for encoding texts/chunks with the SentenceTransformer model.
+        device (Literal["cpu", "cuda", "mps"]): The hardware device to run the model on.
     """
 
-    model_name: str = "all-MiniLM-L6-v2"
-    chunk_size: int = 384
-    overlap: int = 64
-    batch_size: int = 32
-    device: Literal["cpu", "cuda", "mps"] = "cpu"
+    model_name: str = Field("all-MiniLM-L6-v2", description="The name or path of the SentenceTransformer model.")
+    chunk_size: int = Field(384, description="Size of text chunks for processing by the semantic model.")
+    overlap: int = Field(64, description="Overlap size between text chunks for semantic processing.")
+    batch_size: int = Field(32, description="Batch size for semantic model inference.")
+    device: Literal["cpu", "cuda", "mps"] = Field("cpu", description="Device to run the semantic model on ('cpu', 'cuda', 'mps').")
 
     class Config:
         """Configuration class for SemanticConfig.
@@ -76,15 +75,14 @@ class SpacyConfig(BaseModel):
     """Configuration for spaCy model.
 
     Attributes:
-        model_name (str): The name of the spaCy model to use.
-        batch_size (int): Batch size for processing.
-        device (Literal): Device to run the model on ("cpu", "cuda", "mps").
-
+        model_name (str): The name or path of the spaCy model to load (e.g., "en_core_web_sm").
+        batch_size (int): Batch size for spaCy's NLP processing pipeline if applicable (e.g., nlp.pipe).
+        device (Literal["cpu", "cuda"]): The preferred hardware device for spaCy ('cpu' or 'cuda' if available).
     """
 
-    model_name: str = "en_core_web_sm"
-    batch_size: int = 32
-    device: Literal["cpu", "cuda"] = "cpu"
+    model_name: str = Field("en_core_web_sm", description="The name of the spaCy model to use (e.g., 'en_core_web_sm').")
+    batch_size: int = Field(32, description="Batch size for spaCy processing pipelines.")
+    device: Literal["cpu", "cuda"] = Field("cpu", description="Device preference for spaCy ('cpu' or 'cuda').")
 
     class Config:
         """Configuration class for SpacyConfig.
@@ -112,18 +110,25 @@ class Settings(BaseSettings):
     semantic: SemanticConfig = SemanticConfig()
     spacy_config: SpacyConfig = SpacyConfig()
     model_config = SettingsConfigDict(
-        env_file=None,  # Explicitly disable default .env loading here if we manually load
-        env_file_encoding="utf-8",  # Still useful if a default .env was used
-        env_nested_delimiter="__",
-        extra="ignore",
+        env_file=None,  # Explicitly disable default .env loading by pydantic-settings if we manually load first.
+        env_file_encoding="utf-8",
+        env_nested_delimiter="__", # For loading nested Pydantic models from env vars like APP__DEBUG=True
+        extra="ignore", # Ignore extra fields from environment or YAML not defined in the model.
     )
 
-    if spacy_config.device == "cuda":
-        spacy.prefer_gpu()  # type: ignore  # noqa: PGH003
+    # Note: Placing logic like spacy.prefer_gpu() directly in the class body like this
+    # means it executes when the class is defined. This might be too early if `spacy_config`
+    # itself is meant to be loaded from env/YAML.
+    # A better place might be after settings are fully loaded, or in an __init__ if conditional.
+    # However, Pydantic BaseSettings usually don't have complex __init__.
+    # For now, this reflects the original structure.
+    if spacy_config.device == "cuda": # This check uses the default SpacyConfig.device value here.
+        spacy.prefer_gpu()  # type: ignore # noqa: PGH003 - Pylance specific annotation for spacy call
     # --- Load SpaCy Model (used for both coreference resolution and POS similarity scoring) ---
+    # This model loading is done at import time of this config module.
 
-    @field_validator("env")
-    @classmethod
+    @field_validator("env") # Validates the 'env' field after it's populated.
+    @classmethod # Needs to be a classmethod for Pydantic v2 validators.
     def check_env_is_valid(cls, v: str) -> str:
         """Validate the env field and ensure it is a valid environment.
 
@@ -252,12 +257,33 @@ def get_settings() -> Settings:
         msg = "Critical error during settings initialization."
         raise SystemExit(msg) from e
 
-# create a settings instance to trigger loading
-# This is not necessary if you call get_settings() directly in your code.
+# Create a global settings instance.
+# This line will execute `get_settings()` when the `config.py` module is imported,
+# making the settings available globally as `config.settings`.
 settings = get_settings()
-spacy_model = spacy.load(settings.spacy_config.model_name)
 
-# --- Example Usage ---
+# Load spaCy model globally upon import, using the loaded settings.
+# This is a significant side effect for a configuration module.
+# It means importing `config` anywhere will trigger this model loading.
+# If the model is large or loading is slow, this can impact startup time
+# or test execution if tests import modules that eventually import `config`.
+# Consider deferring model loading to where it's explicitly needed,
+# e.g., within an application context or service initializer.
+try:
+    spacy_model = spacy.load(settings.spacy_config.model_name)
+    logging.info(f"spaCy model '{settings.spacy_config.model_name}' loaded successfully at import time.")
+except OSError as e:
+    logging.error(
+        f"Failed to load spaCy model '{settings.spacy_config.model_name}' at import time: {e}. "
+        "spaCy-dependent features will not be available. Ensure the model is downloaded (e.g., python -m spacy download en_core_web_sm)."
+    )
+    spacy_model = None # Ensure spacy_model is defined even if loading fails.
+except Exception as e: # Catch any other unexpected errors
+    logging.error(f"An unexpected error occurred while loading spaCy model '{settings.spacy_config.model_name}' at import time: {e}")
+    spacy_model = None
+
+
+# --- Example Usage (only runs if script is executed directly) ---
 if __name__ == "__main__":
     # --- Setup for Example ---
     logging.info("--- Running Example ---")
