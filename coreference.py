@@ -788,7 +788,7 @@ def rule_based_coref_resolution_v4(
                         if candidate.text == token.text:
                             potential_pn_antecedents.append({
                                 "token": candidate, "score": 0.98, "type": "Exact",
-                                "rule": "PN Exact Match", "distance": token.i - j
+                                "rule": "PN Exact Match", "distance": token.i - j,
                             })
                         # Rule PN-2: Partial Match (e.g., Full Name -> Last Name)
                         # e.g., "John Smith" ... "Smith"
@@ -804,7 +804,7 @@ def rule_based_coref_resolution_v4(
                             if not is_part_of_prev_pn: # If token is likely standalone or starts a new PN.
                                 potential_pn_antecedents.append({
                                     "token": candidate, "score": 0.95, "type": "Partial", # Slightly lower score than exact
-                                    "rule": "PN Partial Match (Last Name)", "distance": token.i - j
+                                    "rule": "PN Partial Match (Last Name)", "distance": token.i - j,
                                 })
                 # Select the best PN match if any candidates were found.
                 if potential_pn_antecedents:

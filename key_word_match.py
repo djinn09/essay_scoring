@@ -1,5 +1,4 @@
-"""
-Provides comprehensive text similarity calculation utilities.
+"""Provides comprehensive text similarity calculation utilities.
 
 This module offers a wide array of text similarity and distance metrics,
 including:
@@ -452,6 +451,7 @@ class TFIDFCalculator:
             dict[str, Optional[float]]: A dictionary where keys are metric names
             (e.g., "tfidf_cosine_similarity") and values are the calculated scores
             (float) or None if a calculation failed.
+
         """
         metrics: dict[str, Optional[float]] = {} # Initialize dictionary to store results.
         try:
@@ -465,7 +465,7 @@ class TFIDFCalculator:
             if tfidf_matrix.shape[1] == 0:
                 logging.debug(
                     "TF-IDF found no features for texts (vocab may be empty after processing): '%s...' vs '%s...'",
-                    text1[:50], text2[:50]
+                    text1[:50], text2[:50],
                 )
                 # Define behavior for no features:
                 # Cosine similarity is undefined (or 0 if vectors are zero, 1 if both truly identical empty strings).
@@ -511,7 +511,7 @@ class TFIDFCalculator:
                 metrics["tfidf_jaccard_distance"] = float(j_dist) if not math.isnan(j_dist) else 1.0
                 # Hamming distance (fraction of positions where term presence differs).
                 metrics["tfidf_hamming_distance"] = float(
-                    pairwise_distances(binary_presence_matrix.astype(int), metric="hamming")[0, 1]
+                    pairwise_distances(binary_presence_matrix.astype(int), metric="hamming")[0, 1],
                 )
             else: # Both binarized vectors are all zeros.
                 metrics["tfidf_jaccard_distance"] = 0.0 # Jaccard distance of two empty sets is 0.

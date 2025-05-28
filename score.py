@@ -1,5 +1,4 @@
-"""
-Orchestrates the essay scoring process by integrating various feature extractors and similarity calculators.
+"""Orchestrates the essay scoring process by integrating various feature extractors and similarity calculators.
 
 This module defines the main `score_essay` function, which takes an essay and a
 reference text, and returns a comprehensive set of scores encapsulated in the
@@ -10,18 +9,18 @@ matching, POS-based scoring, and other text feature analyses.
 from __future__ import annotations
 
 from app_types import EssayScores, KeywordMatcherConfig, SimilarityMetrics, SinglePairAnalysisResult
-from key_word_match import SimilarityCalculator # For general similarity metrics
-from keyword_matcher import KeywordMatcher # For keyword-based matching
-from pos_score import score_pos # For POS-based scoring
-from semantic_match import SemanticCosineSimilarity # For semantic similarity
+from key_word_match import SimilarityCalculator  # For general similarity metrics
+from keyword_matcher import KeywordMatcher  # For keyword-based matching
+from pos_score import score_pos  # For POS-based scoring
+from semantic_match import SemanticCosineSimilarity  # For semantic similarity
+
 # Import global models and settings loaded in settings.py
 from settings import semantic_model, settings, similarity_config
-from text_features import SinglePairAnalysisInput, run_single_pair_text_analysis # For detailed text feature analysis
+from text_features import SinglePairAnalysisInput, run_single_pair_text_analysis  # For detailed text feature analysis
 
 
 def score_essay(essay: str, reference: str) -> EssayScores:
-    """
-    Scores an essay against a reference text using a variety of metrics.
+    """Scores an essay against a reference text using a variety of metrics.
 
     This function computes:
     - Semantic similarity (cosine similarity using Sentence Transformers).
@@ -37,6 +36,7 @@ def score_essay(essay: str, reference: str) -> EssayScores:
     Returns:
         EssayScores: A Pydantic model instance containing all the calculated scores.
                      If semantic similarity calculation fails, its specific score might be None.
+
     """
     # Step 1: Initialize Semantic Similarity Model
     # This uses a pre-loaded SentenceTransformer model (`semantic_model` from settings.py)

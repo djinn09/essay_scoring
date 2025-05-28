@@ -138,6 +138,7 @@ class SemanticCosineSimilarity:
         batch_size (int): The batch size to use when encoding multiple chunks with the
                           Sentence Transformer model. This can optimize performance for
                           texts that are split into many chunks.
+
     """
 
     def __init__(
@@ -164,6 +165,7 @@ class SemanticCosineSimilarity:
                        or if `chunk_size`, `overlap`, or `batch_size` are not integers.
             ValueError: If `chunk_size` is not strictly greater than `overlap`,
                         if `overlap` is negative, or if `batch_size` is not positive.
+
         """
         # --- Input Validation ---
         if not isinstance(model, SentenceTransformer):
@@ -231,6 +233,7 @@ class SemanticCosineSimilarity:
             embedding of the input text. Returns `None` if the input `text` is empty,
             not a string, if no valid chunks are produced, or if the encoding process
             fails for any reason.
+
         """
         # Input validation: Ensure text is a non-empty string.
         if not isinstance(text, str) or not text.strip():
@@ -336,6 +339,7 @@ class SemanticCosineSimilarity:
         Returns:
             set[str]: A set of valid internal metric string constants (e.g.,
             `{METRIC_COSINE, METRIC_EUCLIDEAN}`) corresponding to the requested metrics.
+
         """
         requested_metrics_internal: set[str] = set()
         if metrics_to_calculate is None:
@@ -387,6 +391,7 @@ class SemanticCosineSimilarity:
               if an early exit condition provides them (e.g., for identical texts), or `None`
               if comparison is not possible (e.g., one text empty), or an empty
               `SimilarityScores` object if no metrics were requested.
+
         """
         scores_data: dict[str, float] = {}  # Data to populate SimilarityScores, uses internal metric keys.
 
@@ -442,6 +447,7 @@ class SemanticCosineSimilarity:
         Returns:
             SimilarityScores: A Pydantic model instance populated with the calculated scores
                               for the requested metrics. Metrics not requested will be `None`.
+
         """
         scores_data: dict[str, float] = {}  # To store calculated scores with internal keys.
 
@@ -505,6 +511,7 @@ class SemanticCosineSimilarity:
             metrics. Returns `None` if a critical error occurs (e.g., embedding generation
             fails for one or both texts, or if one text is empty while the other is not,
             making comparison impossible).
+
         """
         # Step 1: Resolve and validate the list of metrics the user wants to calculate.
         # This converts user-friendly names to internal constants and filters invalid ones.

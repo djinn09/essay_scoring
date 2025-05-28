@@ -10,7 +10,7 @@ import logging
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import spacy
 import yaml
@@ -35,6 +35,7 @@ class AppConfig(BaseModel):
         version (str): The version of the application.
         debug (bool): Flag to enable or disable debug mode.
         log_level (str): The logging level for the application (e.g., INFO, DEBUG).
+
     """
 
     name: str = Field("Essay Grader", description="The name of the application.")
@@ -52,6 +53,7 @@ class SemanticConfig(BaseModel):
         overlap (int): Number of characters to overlap between adjacent chunks.
         batch_size (int): Batch size for encoding texts/chunks with the SentenceTransformer model.
         device (Literal["cpu", "cuda", "mps"]): The hardware device to run the model on.
+
     """
 
     model_name: str = Field("all-MiniLM-L6-v2", description="The name or path of the SentenceTransformer model.")
@@ -78,6 +80,7 @@ class SpacyConfig(BaseModel):
         model_name (str): The name or path of the spaCy model to load (e.g., "en_core_web_sm").
         batch_size (int): Batch size for spaCy's NLP processing pipeline if applicable (e.g., nlp.pipe).
         device (Literal["cpu", "cuda"]): The preferred hardware device for spaCy ('cpu' or 'cuda' if available).
+
     """
 
     model_name: str = Field("en_core_web_sm", description="The name of the spaCy model to use (e.g., 'en_core_web_sm').")
@@ -273,13 +276,13 @@ try:
     spacy_model = spacy.load(settings.spacy_config.model_name)
     logging.info(f"spaCy model '{settings.spacy_config.model_name}' loaded successfully at import time.")
 except OSError as e:
-    logging.error(
+    logging.exception(
         f"Failed to load spaCy model '{settings.spacy_config.model_name}' at import time: {e}. "
-        "spaCy-dependent features will not be available. Ensure the model is downloaded (e.g., python -m spacy download en_core_web_sm)."
+        "spaCy-dependent features will not be available. Ensure the model is downloaded (e.g., python -m spacy download en_core_web_sm).",
     )
     spacy_model = None # Ensure spacy_model is defined even if loading fails.
 except Exception as e: # Catch any other unexpected errors
-    logging.error(f"An unexpected error occurred while loading spaCy model '{settings.spacy_config.model_name}' at import time: {e}")
+    logging.exception(f"An unexpected error occurred while loading spaCy model '{settings.spacy_config.model_name}' at import time: {e}")
     spacy_model = None
 
 

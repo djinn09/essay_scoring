@@ -103,6 +103,7 @@ class KeywordMatcher:
             config (Optional[KeywordMatcherConfig]): Configuration settings for the matcher.
                 If None, `KeywordMatcherConfig` defaults are used. This config controls
                 lemmatization, POS tagging, allowed POS tags, and custom stopwords.
+
         """
         if not _rich_available: # Check if rich library is available for enhanced logging.
             logger.warning("Module 'rich' for enhanced logging not found. Logging will use standard format.")
@@ -166,8 +167,7 @@ class KeywordMatcher:
 
     @lru_cache(maxsize=128) # Cache results for previously seen texts.
     def _preprocess_text(self, text: str) -> list[str]:
-        """
-        Performs basic preprocessing on a text string.
+        """Performs basic preprocessing on a text string.
 
         Steps:
         1. Converts text to lowercase.
@@ -181,6 +181,7 @@ class KeywordMatcher:
         Returns:
             list[str]: A list of processed (cleaned, tokenized, filtered) tokens.
                        Returns an empty list for invalid input or if NLTK data (e.g., 'punkt') is missing.
+
         """
         if not isinstance(text, str) or not text.strip(): # Handle empty or non-string input.
             logger.debug("Preprocessing received empty or invalid text. Returning empty token list.")
@@ -205,8 +206,7 @@ class KeywordMatcher:
 
     @lru_cache(maxsize=128) # Cache results for previously seen token tuples.
     def _normalize_tokens(self, tokens: tuple[str, ...]) -> tuple[str, ...]:
-        """
-        Normalizes a tuple of tokens, primarily by lemmatization if enabled and available.
+        """Normalizes a tuple of tokens, primarily by lemmatization if enabled and available.
 
         Args:
             tokens (tuple[str, ...]): A tuple of string tokens.
@@ -214,6 +214,7 @@ class KeywordMatcher:
         Returns:
             tuple[str, ...]: A tuple of normalized (lemmatized) tokens. Returns the original
                              tokens if lemmatization is disabled or the lemmatizer is not functional.
+
         """
         # Check if lemmatization should be applied and if the global lemmatizer is available.
         if not self.effective_use_lemmatization or _GLOBAL_LEMMATIZER is None:
@@ -232,8 +233,7 @@ class KeywordMatcher:
 
     @lru_cache(maxsize=128) # Cache results for previously seen token tuples.
     def _get_pos_tags(self, tokens: tuple[str, ...]) -> list[tuple[str, str]]:
-        """
-        Performs Part-of-Speech (POS) tagging on a tuple of tokens.
+        """Performs Part-of-Speech (POS) tagging on a tuple of tokens.
 
         Args:
             tokens (tuple[str, ...]): A tuple of string tokens.
@@ -242,6 +242,7 @@ class KeywordMatcher:
             list[tuple[str, str]]: A list of (token, POS_tag) tuples. Returns an empty list
                                    if input tokens are empty or if POS tagging fails (e.g.,
                                    NLTK 'averaged_perceptron_tagger' data missing).
+
         """
         if not tokens: # No tokens to tag.
             return []
@@ -258,8 +259,7 @@ class KeywordMatcher:
             return []
 
     def _extract_keywords_from_a(self, paragraph_a: str) -> set[str]:
-        """
-        Extracts a set of unique keywords from Paragraph A based on the matcher's configuration.
+        """Extracts a set of unique keywords from Paragraph A based on the matcher's configuration.
 
         The process involves:
         1. Basic preprocessing (`_preprocess_text`).
@@ -272,6 +272,7 @@ class KeywordMatcher:
         Returns:
             set[str]: A set of unique extracted keywords. Returns an empty set if no
                       keywords can be extracted (e.g., empty input, processing errors).
+
         """
         # Step 1: Perform initial preprocessing (lowercase, punctuation, tokenize, stopwords).
         processed_tokens_list = self._preprocess_text(paragraph_a)
@@ -312,8 +313,7 @@ class KeywordMatcher:
         return keywords
 
     def find_matches_and_score(self, paragraph_a: str, paragraph_b: str) -> MatcherScores:
-        """
-        Calculates keyword coverage and vocabulary cosine similarity between two paragraphs.
+        """Calculates keyword coverage and vocabulary cosine similarity between two paragraphs.
 
         Args:
             paragraph_a (str): The primary text from which keywords are extracted (source).
@@ -327,6 +327,7 @@ class KeywordMatcher:
                     - `matched_keyword_count`: Number of A's keywords found in B.
                     - `keyword_coverage_score`: Proportion of A's keywords in B.
                     - `vocabulary_cosine_similarity`: Cosine similarity of A and B's vocabularies.
+
         """
         logger.info("Starting keyword matching and scoring for Paragraph A vs. Paragraph B.")
         logger.debug(f"Paragraph A (first 60 chars): '{paragraph_a[:60]}...'")
@@ -346,7 +347,7 @@ class KeywordMatcher:
 
         if not keywords_a_set:
             logger.warning(
-                "No keywords extracted from Paragraph A. Keyword coverage score will be 0."
+                "No keywords extracted from Paragraph A. Keyword coverage score will be 0.",
             )
         else:
             # Calculate keyword coverage components if keywords were extracted from A.
@@ -370,8 +371,7 @@ class KeywordMatcher:
         )
 
     def _calculate_vocab_cosine(self, paragraph_a: str, paragraph_b: str) -> float:
-        """
-        Calculates the cosine similarity between the vocabularies of two paragraphs.
+        """Calculates the cosine similarity between the vocabularies of two paragraphs.
 
         Vocabularies are derived from preprocessed tokens (lowercase, no punctuation, no stopwords).
         Similarity is based on binary vectors representing word presence in each paragraph's vocabulary.
@@ -383,6 +383,7 @@ class KeywordMatcher:
         Returns:
             float: The cosine similarity score (0.0 to 1.0). Returns 0.0 if both paragraphs
                    are empty after preprocessing or if there's no shared vocabulary.
+
         """
         # Preprocess both paragraphs to get lists of filtered tokens.
         processed_tokens_a_list = self._preprocess_text(paragraph_a)
@@ -421,8 +422,7 @@ class KeywordMatcher:
         keywords_a_set: set[str], # Pre-extracted and normalized keywords from Paragraph A.
         paragraph_b: str,       # Raw text of Paragraph B.
     ) -> dict[str, Any]:
-        """
-        Calculates keyword coverage components by checking how many keywords from Paragraph A
+        """Calculates keyword coverage components by checking how many keywords from Paragraph A
         are present in Paragraph B.
 
         Args:
@@ -434,6 +434,7 @@ class KeywordMatcher:
                 - "matched_keywords": A sorted list of keywords from `keywords_a_set` found in Paragraph B.
                 - "matched_keyword_count": The number of such matched keywords.
                 - "keyword_coverage_score": The proportion of `keywords_a_set` found in Paragraph B.
+
         """
         # Preprocess Paragraph B (lowercase, punctuation, tokenize, stopwords).
         processed_tokens_b_list = self._preprocess_text(paragraph_b)

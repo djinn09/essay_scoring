@@ -31,8 +31,8 @@ import logging
 from typing import Any, Optional
 
 import amrlib
-import penman # Required for graph manipulation
-from amrlib.evaluate.smatch_enhanced import compute_smatch # Enhanced for more detailed Smatch scores
+import penman  # Required for graph manipulation
+from amrlib.evaluate.smatch_enhanced import compute_smatch  # Enhanced for more detailed Smatch scores
 
 # --- Rich Logging (Optional) ---
 try:
@@ -102,6 +102,7 @@ class AMRSimilarityCalculator:
 
         Raises:
             ValueError: If `stog_model` is not provided (is None).
+
         """
         if not stog_model:
             msg = "A pre-loaded AMR StoG model (stog_model) is required."
@@ -127,6 +128,7 @@ class AMRSimilarityCalculator:
             Optional[str]: The AMR graph in PENMAN string format for the first successfully
                            parsed sentence, or None if parsing fails, the text is empty,
                            or the model is not available.
+
         """
         if not self.stog_model:
             logger.error("StoG model not available for AMR parsing.")
@@ -176,6 +178,7 @@ class AMRSimilarityCalculator:
 
         Raises:
             penman.DecodeError: If the penman library fails to decode the graph string.
+
         """
         concepts = set()
         if not penman_graph_str:
@@ -243,6 +246,7 @@ class AMRSimilarityCalculator:
 
         Raises:
             penman.DecodeError: If the penman library fails to decode the graph string.
+
         """
         nes = set()
         if not penman_graph_str:
@@ -303,6 +307,7 @@ class AMRSimilarityCalculator:
         Returns:
             set[str]: A set containing `NEGATION_PLACEHOLDER` if `:polarity -` is found,
                       otherwise an empty set.
+
         """
         negated_concepts = set()
         if not penman_graph_str:
@@ -347,6 +352,7 @@ class AMRSimilarityCalculator:
 
         Raises:
             penman.DecodeError: If the penman library fails to decode the graph string.
+
         """
         if not penman_graph_str:
             return None
@@ -389,6 +395,7 @@ class AMRSimilarityCalculator:
             similarity scores as floats. If a specific feature calculation fails or
             if AMR parsing fails for either text, the corresponding value will be None.
             The dictionary also includes placeholders for features not yet implemented.
+
         """
         results: dict[str, Optional[float]] = {
             "smatch_fscore": None,
@@ -528,7 +535,7 @@ if __name__ == "__main__":
                 level=LOG_LEVEL,
                 show_path=False, # Don't show module path in log output
                 rich_tracebacks=True, # Enable rich tracebacks for exceptions
-                markup=True # Allow rich markup in log messages
+                markup=True, # Allow rich markup in log messages
             )
             logging.root.addHandler(rich_handler)
             from rich.console import Console
@@ -544,7 +551,7 @@ if __name__ == "__main__":
         # Basic logging configuration if Rich is not available or fails
         logging.basicConfig(
             level=LOG_LEVEL,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         _separator_line = lambda: print("-" * 70) # Simple separator for standard logging
         logger.info("Keyword/Semantic/AMR Example (standard logging - install 'rich' for enhanced output)")
@@ -567,7 +574,7 @@ if __name__ == "__main__":
         except ValueError as e: # Catch specific error from __init__
             logger.error(f"Failed to initialize AMRSimilarityCalculator: {e}")
             enable_amr_similarity_processing = False
-        except Exception as e: # Catch any other unexpected errors during init
+        except Exception: # Catch any other unexpected errors during init
             logger.exception("An unexpected error occurred during AMRSimilarityCalculator initialization.")
             enable_amr_similarity_processing = False
     else:
@@ -613,8 +620,8 @@ if __name__ == "__main__":
             logger.info(f">>> {log_header}:")
 
         # Log the input texts (first 50 chars for brevity if long)
-        logger.info(f" Text 1: \"{text_sample_1[:100].strip()}...\"" if len(text_sample_1) > 100 else f" Text 1: \"{text_sample_1.strip()}\"")
-        logger.info(f" Text 2: \"{text_sample_2[:100].strip()}...\"" if len(text_sample_2) > 100 else f" Text 2: \"{text_sample_2.strip()}\"")
+        logger.info(f' Text 1: "{text_sample_1[:100].strip()}..."' if len(text_sample_1) > 100 else f' Text 1: "{text_sample_1.strip()}"')
+        logger.info(f' Text 2: "{text_sample_2[:100].strip()}..."' if len(text_sample_2) > 100 else f' Text 2: "{text_sample_2.strip()}"')
 
         if not all_calculated_features:
             logger.info("  No features were calculated for this pair.")

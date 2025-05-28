@@ -1,5 +1,4 @@
-"""
-Text Feature Extraction and Analysis Module.
+"""Text Feature Extraction and Analysis Module.
 
 This module provides a comprehensive suite of tools for extracting various
 features from textual data, primarily aimed at text comparison, similarity
@@ -128,6 +127,7 @@ class WordVectorCreationResult(BaseModel):
 
     class Config:
         """Pydantic model configuration."""
+
         arbitrary_types_allowed = True  # Allows complex types like scipy.sparse.csr_matrix
 
 
@@ -137,6 +137,7 @@ class GraphMetrics(BaseModel):
     Used to summarize the size and density of graphs, such as the corpus graph
     or subgraphs generated during analysis.
     """
+
     nodes: int = Field(..., description="Number of nodes in the graph.", ge=0)
     edges: int = Field(..., description="Number of edges in the graph.", ge=0)
     density: Optional[float] = Field(
@@ -153,6 +154,7 @@ class SmithWatermanParams(BaseModel):
     This model encapsulates all necessary inputs for performing a Smith-Waterman
     alignment on specific windows within two tokenized texts.
     """
+
     t1: list[str] = Field(..., description="First text represented as a list of tokens.")
     t2: list[str] = Field(..., description="Second text represented as a list of tokens.")
     sm: dict[str, dict[str, float]] = Field(
@@ -179,6 +181,7 @@ class LexicalClusterFeature(BaseModel):
     These features are derived from comparing the text against a set of model/reference texts
     using TF-IDF and hierarchical clustering.
     """
+
     # Cosine similarity features were commented out in the original, retaining that.
     # cosine_min: float = Field(..., description="Minimum cosine similarity to model answers.")
     # cosine_mean: float = Field(..., description="Mean cosine similarity to model answers.")
@@ -208,6 +211,7 @@ class LexicalClusterFeature(BaseModel):
 
 class LexicalFeaturesAnalysis(BaseModel):
     """Container for a list of lexical and clustering features for all analyzed student answers."""
+
     student_features: list[LexicalClusterFeature] = Field(
         default_factory=list,
         description="A list, where each item contains the lexical/clustering features for one student answer.",
@@ -216,6 +220,7 @@ class LexicalFeaturesAnalysis(BaseModel):
 
 class SmithWatermanConfig(BaseModel):
     """Configuration parameters for the Smith-Waterman algorithm variant used for plagiarism detection."""
+
     k: int = Field(
         default=3,
         gt=0,
@@ -240,6 +245,7 @@ class FullTextAnalysisInput(BaseModel):
     This model gathers all necessary data and configuration to analyze a collection
     of student texts against a collection of model answers.
     """
+
     model_answers: list[str] = Field(..., description="A list of model/reference answer strings.")
     student_texts: list[str] = Field(..., description="A list of student-provided text strings to be analyzed.")
 
@@ -281,6 +287,7 @@ class FullTextAnalysisResult(BaseModel):
     This includes metrics for the corpus graph, lexical features for each student,
     and aggregated per-student similarity scores relative to the model answers.
     """
+
     corpus_graph_metrics: Optional[GraphMetrics] = Field(
         default=None,
         description="Metrics (nodes, edges, density) of the word co-occurrence graph built from the entire corpus.",
@@ -509,6 +516,7 @@ def simple_tokenize(text: str) -> list[str]:
 
     Returns:
         list[str]: A list of processed tokens. Returns an empty list if input is not a string.
+
     """
     if not isinstance(text, str):
         logger.warning("simple_tokenize received non-string input: %s. Returning empty list.", type(text))
@@ -534,6 +542,7 @@ def create_word_vectors(texts: list[str]) -> WordVectorCreationResult:
                                   matrix (`word_matrix_csr_scipy`) and the list of
                                   vocabulary words (`words_vocabulary`). Returns an empty
                                   result if no valid texts are provided or if an error occurs.
+
     """
     # Initialize CountVectorizer with the custom tokenizer.
     # `token_pattern=None` is important when a custom tokenizer is provided.
@@ -574,6 +583,7 @@ def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.
         nx.Graph: A NetworkX graph where nodes are words and edges are weighted by
                   their cosine similarity. Returns an empty graph if input is invalid
                   or if a MemoryError occurs.
+
     """
     if word_matrix_result.word_matrix_csr_scipy is None or not word_matrix_result.words_vocabulary:
         logger.warning("build_graph_efficiently: word_matrix or words vocabulary is empty. Returning empty graph.")
@@ -655,6 +665,7 @@ def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> Graph
         GraphSimilarityOutput: A Pydantic model containing the similarity score (subgraph density),
                                number of nodes and edges in the subgraph, and a message.
                                Returns a score of 0.0 if no common words are found in the graph.
+
     """
     # Tokenize the input texts to get sets of unique words.
     words1 = set(simple_tokenize(text1))
@@ -727,6 +738,7 @@ def preprocess_sw(text: str, *, lowercase: bool = True, remove_punct: bool = Tru
 
     Returns:
         list[str]: A list of processed tokens. Returns an empty list if input is not a string.
+
     """
     if not isinstance(text, str):
         logger.warning("preprocess_sw received non-string input: %s. Returning empty list.", type(text))
@@ -757,6 +769,7 @@ def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[i
                                           where each k-gram appears in the `tokens` list.
                                           Returns an empty dictionary if k is invalid,
                                           tokens are empty, or tokens length is less than k.
+
     """
     index: dict[tuple[str, ...], list[int]] = defaultdict(list)
     # Validate inputs: k must be positive, tokens list must not be empty and must be at least k tokens long.
@@ -786,6 +799,7 @@ def smith_waterman_window(params: SmithWatermanParams) -> float:
     Returns:
         float: The maximum alignment score found within the specified windows.
                Returns 0.0 if either window results in an empty token list.
+
     """
     # Destructure parameters for convenience
     t1, t2, sm, gap_penalty, win1, win2 = params.t1, params.t2, params.sm, params.gap_penalty, params.win1, params.win2
@@ -811,7 +825,7 @@ def smith_waterman_window(params: SmithWatermanParams) -> float:
             # `a1[i-1]` and `a2[j-1]` are the current tokens being compared.
             # Default to a mismatch_score (e.g., -1.0 or as defined in `sm`) if a word pair is not explicitly in `sm`.
             # This shouldn't happen if `sm` is built correctly from all unique words in t1 and t2.
-            match_val = sm.get(a1[i - 1], {}).get(a2[j - 1], config.mismatch_score if 'config' in globals() else -1.0)
+            match_val = sm.get(a1[i - 1], {}).get(a2[j - 1], config.mismatch_score if "config" in globals() else -1.0)
 
 
             # Calculate scores from three possible previous cells:
@@ -854,6 +868,7 @@ def compute_plagiarism_score_fast(
         PlagiarismScore: A Pydantic model containing the normalized `overlap_percentage`
                          (plagiarism score). Returns a score of 0.0 if either text is empty
                          after preprocessing.
+
     """
     # Preprocess texts into lists of tokens.
     t1_tokens = preprocess_sw(text1)
@@ -938,6 +953,7 @@ def calculate_overlap_coefficient(text1: str, text2: str) -> OverlapCoefficient:
     Returns:
         OverlapCoefficient: Pydantic model containing the calculated coefficient.
                             Returns 0.0 if the smaller set is empty.
+
     """
     set1 = set(simple_tokenize(text1))
     set2 = set(simple_tokenize(text2))
@@ -960,6 +976,7 @@ def calculate_sorensen_dice_coefficient(text1: str, text2: str) -> SorensenDiceC
     Returns:
         SorensenDiceCoefficient: Pydantic model containing the calculated coefficient.
                                  Returns 0.0 if both sets are empty.
+
     """
     set1 = set(simple_tokenize(text1))
     set2 = set(simple_tokenize(text2))
@@ -988,6 +1005,7 @@ def get_char_by_char_equality_optimized(s1_in: Optional[str], s2_in: Optional[st
     Returns:
         CharEqualityScore: Pydantic model containing the calculated score.
                            Returns a score of 0.0 if either input string is None.
+
     """
     if s1_in is None or s2_in is None:
         logger.debug("One or both input strings are None for char_by_char_equality. Score is 0.")
@@ -1021,6 +1039,7 @@ def create_semantic_graph_spacy(text: str, spacy_nlp_model: Any) -> Optional[nx.
     Returns:
         Optional[nx.Graph]: A NetworkX graph representing the semantic structure,
                             or None if the spaCy model is not available/loaded.
+
     """
     if spacy_nlp_model is None: # Guard against uninitialized spaCy model
         logger.warning("spaCy model (spacy_nlp_model) not loaded. Cannot create semantic graph.")
@@ -1060,6 +1079,7 @@ def calculate_semantic_graph_similarity_spacy(
         SemanticGraphSimilarity: Pydantic model containing the overall similarity,
                                  node Jaccard index, and edge Jaccard index.
                                  Returns all zeros if either graph is None or empty.
+
     """
     # Handle cases where graphs are None or empty to prevent errors.
     if graph1 is None or graph2 is None or graph1.number_of_nodes() == 0 or graph2.number_of_nodes() == 0:
@@ -1109,6 +1129,7 @@ def preprocess_tfidf(text: str, *, lowercase: bool = True, remove_punct: bool = 
 
     Returns:
         str: The processed text string. Returns an empty string if input is not a string.
+
     """
     if not isinstance(text, str): # Basic type check
         logger.warning("preprocess_tfidf received non-string input: %s. Returning empty string.", type(text))
@@ -1160,6 +1181,7 @@ def extract_lexical_features(
                                  objects, one for each student answer. Returns an empty list
                                  of features if inputs are empty or if critical errors occur
                                  (e.g., TF-IDF vectorization fails).
+
     """
     if not model_answers or not student_answers:
         logger.warning("extract_lexical_features: model_answers or student_answers list is empty. Returning empty features.")
@@ -1194,7 +1216,7 @@ def extract_lexical_features(
     if tfidf_matrix.shape[0] < min_samples_for_pdist or tfidf_matrix.shape[1] == 0: # Not enough texts or no features.
         logger.warning(
             f"Not enough samples ({tfidf_matrix.shape[0]}) or features ({tfidf_matrix.shape[1]}) "
-            "for pdist. Cannot proceed with clustering-based lexical features."
+            "for pdist. Cannot proceed with clustering-based lexical features.",
         )
         # Create default 'error' features for each student answer.
         error_feature = LexicalClusterFeature(
@@ -1216,7 +1238,7 @@ def extract_lexical_features(
         linkage_matrix = linkage(pairwise_dist_matrix_condensed, method=linkage_method)
     except ValueError as e: # `linkage` also needs more than 1 observation.
         logger.exception(
-            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape}): {e}."
+            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape}): {e}.",
         )
         error_feature = LexicalClusterFeature(
             coph_min=0.0, coph_mean=0.0, coph_max=0.0,
@@ -1247,7 +1269,7 @@ def extract_lexical_features(
     else: # If all samples are in one cluster or each sample is its own cluster.
         logger.debug(
             f"Cannot compute meaningful silhouette scores (num_unique_labels={num_unique_labels}, "
-            f"num_total_texts={num_total_texts}). Setting silhouette scores to 0."
+            f"num_total_texts={num_total_texts}). Setting silhouette scores to 0.",
         )
         silhouette_vals = np.zeros(num_total_texts) # Assign 0 if silhouette cannot be computed.
 
@@ -1287,7 +1309,6 @@ import nltk
 
 nltk.download("wordnet", quiet=True) # Added quiet=True to suppress console output during tests/runs
 nltk.download("omw-1.4", quiet=True)
-from nltk.translate.meteor_score import meteor_score
 
 # These lines will execute when the module is imported, which might not be intended.
 # reference_meteor_example = [["This", "is", "a", "reference", "summary"]]
@@ -1321,6 +1342,7 @@ def run_single_pair_text_analysis(
     Returns:
         SinglePairAnalysisResult: A Pydantic model containing all computed similarity metrics
                                   for the input pair of texts.
+
     """
     logger.info(
         f"Starting single pair analysis for student text (first 30 chars): '{inputs.student_text[:30]}...' "
@@ -1411,6 +1433,7 @@ def run_full_text_analysis(
                                       including corpus graph metrics, student lexical features,
                                       and per-student aggregated similarity scores.
             - Optional[nx.Graph]: The generated corpus graph if successfully built, otherwise None.
+
     """
     logger.info("Starting full text analysis pipeline for %d student texts and %d model answers.",
                 len(inputs.student_texts), len(inputs.model_answers))
@@ -1487,7 +1510,7 @@ def run_full_text_analysis(
             # Crucially, pass the `corpus_graph` if available to avoid rebuilding it repeatedly.
             pair_analysis_result = run_single_pair_text_analysis(
                 single_pair_input_params,
-                existing_graph=corpus_graph
+                existing_graph=corpus_graph,
             )
 
             # Collect scores from the pair analysis.

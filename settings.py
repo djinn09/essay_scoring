@@ -1,5 +1,4 @@
-"""
-Settings and Global Initialization Module for Essay Grading.
+"""Settings and Global Initialization Module for Essay Grading.
 
 This module is responsible for:
 1. Retrieving application-wide configuration settings using the `config.py` module.
@@ -18,11 +17,12 @@ import os
 
 from sentence_transformers import SentenceTransformer
 
-from app_types import SimilarityCalculatorConfig # Pydantic model for SimilarityCalculator configuration.
-from config import get_settings # Function to load comprehensive application settings.
+from app_types import SimilarityCalculatorConfig  # Pydantic model for SimilarityCalculator configuration.
+from config import get_settings  # Function to load comprehensive application settings.
+
 # The following import assumes `logger_utill.py` exists and provides `setup_global_logger`.
 # If `logger_utill.py` is missing, this line will cause an ImportError.
-from logger_utill import setup_global_logger # Utility for global logger configuration.
+from logger_utill import setup_global_logger  # Utility for global logger configuration.
 
 # Load application settings from config.py (which handles .env, YAML, etc.)
 settings = get_settings()
@@ -44,7 +44,7 @@ except NameError:
     logging.warning("`setup_global_logger` not found (likely `logger_utill.py` is missing). Using basic logging configuration.")
 except Exception as e:
     logging.basicConfig(level=log_level_to_use)
-    logging.error(f"Failed to setup global logger via `setup_global_logger`: {e}. Using basic logging configuration.")
+    logging.exception(f"Failed to setup global logger via `setup_global_logger`: {e}. Using basic logging configuration.")
 
 
 # Get a logger instance for this settings module, using the globally configured logger.
@@ -73,7 +73,7 @@ try:
 except Exception as e:
     app_logger.exception(
         f"Failed to initialize global semantic model '{settings.semantic.model_name}'. "
-        f"Semantic similarity features will likely fail. Error: {e}"
+        f"Semantic similarity features will likely fail. Error: {e}",
     )
     semantic_model = None # Ensure variable exists even if loading fails.
 
@@ -87,5 +87,5 @@ except Exception as e:
 # it should be nested within the `Settings` model in `config.py`.
 similarity_config = SimilarityCalculatorConfig()
 app_logger.debug(
-    f"Default SimilarityCalculatorConfig initialized: {similarity_config.model_dump_json(indent=2)}"
+    f"Default SimilarityCalculatorConfig initialized: {similarity_config.model_dump_json(indent=2)}",
 )

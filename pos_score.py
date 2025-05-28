@@ -1,5 +1,4 @@
-"""
-Calculates a score based on Part-of-Speech (POS) pattern similarity between texts.
+"""Calculates a score based on Part-of-Speech (POS) pattern similarity between texts.
 
 This module uses spaCy for POS tagging and word vector similarity. It identifies
 specific POS combinations (triplets like ProperNoun-Verb-Noun, and duplets like
@@ -7,22 +6,24 @@ ProperNoun-Verb or ProperNoun-Noun) in sentences. The similarity score is
 derived from the overlap of these combinations between a model text and a
 candidate text.
 """
+
 from __future__ import annotations
 
 from timeit import default_timer as timer
 
 import nltk  # For sentence tokenization in POS scoring
 
-from config import spacy_model # Imports the globally loaded spaCy model
+from config import spacy_model  # Imports the globally loaded spaCy model
 
 # Use the globally loaded spaCy model from the config module.
 # This assumes config.py has successfully loaded a spaCy model.
 nlp = spacy_model
-SIMILARITY_THRESHOLD = 0.3 # Threshold for spaCy's vector similarity for matching verbs/nouns.
+SIMILARITY_THRESHOLD = 0.3  # Threshold for spaCy's vector similarity for matching verbs/nouns.
 
 
 def extract_pos_combinations(text: str) -> list[list[str]]:
-    """Tokenize input text into sentences and extract POS combinations:
+    """Tokenize input text into sentences and extract POS combinations.
+
     - Triplets: (ProperNoun, Verb, Noun)
     - Duplets: (ProperNoun, Verb) or (ProperNoun, Noun).
 
@@ -43,25 +44,46 @@ def extract_pos_combinations(text: str) -> list[list[str]]:
                          (either a duplet or a triplet of token texts).
                          Returns an empty list if the spaCy model (`nlp`) is not available
                          or if no relevant POS combinations are found.
+
     """
-    if not nlp: # Check if spaCy model is loaded.
+    if not nlp:  # Check if spaCy model is loaded.
         print("SpaCy model ('nlp') not available. POS combination extraction skipped.")
         return []
 
-    lower_text = text.lower() # Convert text to lowercase for consistent processing.
+    lower_text = text.lower()  # Convert text to lowercase for consistent processing.
     try:
         # Attempt sentence tokenization using NLTK.
         sentences = nltk.sent_tokenize(lower_text)
-    except Exception as e: # Fallback sentence tokenization if NLTK fails.
+    except Exception as e:  # Fallback sentence tokenization if NLTK fails.
         print(f"NLTK sentence tokenization error: {e}. Falling back to splitting by periods.")
         sentences = [s.strip() for s in lower_text.split(".") if s.strip()]
 
-    pos_combinations: list[list[str]] = [] # List to store all extracted combinations.
+    return pos_combinations(sentences)
+
+
+def pos_combinations(sentences: list[str]) -> list[list[str]]:
+    """Extract POS combinations from a list of sentences.
+
+    Given a list of sentences, process each sentence with spaCy and extract
+    specific POS combinations. The extracted combinations are either triplets
+    (ProperNoun, Verb, Noun) or duplets (ProperNoun, Verb) or (ProperNoun, Noun)
+    based on the presence of proper nouns, verbs, and nouns in the sentence.
+
+    Args:
+        sentences (list[str]): A list of sentences to process.
+
+    Returns:
+        list[list[str]]: A list of extracted POS combinations (either triplets or duplets).
+
+    """
+    pos_combinations: list[list[str]] = []  # List to store all extracted combinations.
     for _, sentence_text in enumerate(sentences):
         # Process each sentence with spaCy.
-        doc = nlp(sentence_text)
+        doc = nlp(sentence_text)  # type:ignore
         # Sets to store unique proper nouns, verbs, and nouns found in the sentence.
-        proper_nouns, verbs, nouns = set(), set(), set()
+        proper_nouns: set[str] = set()
+        verbs: set[str] = set()
+        nouns: set[str] = set()
 
         # Identify and collect PROPN, VERB, NOUN tokens from the sentence.
         for token in doc:
@@ -87,10 +109,10 @@ def extract_pos_combinations(text: str) -> list[list[str]]:
 
 
 def match_triplet(pronoun_a: str, verb_a: str, noun_a: str, pronoun_b: str, verb_b: str, noun_b: str) -> bool:
-    """
-    Compare two POS triplets for similarity:
+    """Compare two POS triplets for similarity.
+
     - Exact match across all three elements
-    - If exact mismatch, check spaCy vector similarity for verb and noun
+    - If exact mismatch, check spaCy vector similarity for verb and noun.
     """
     if pronoun_a == pronoun_b and verb_a == verb_b and noun_a == noun_b:
         return True
@@ -104,10 +126,10 @@ def match_triplet(pronoun_a: str, verb_a: str, noun_a: str, pronoun_b: str, verb
 
 
 def match_duplet(elem1_a: str, elem2_a: str, elem1_b: str, elem2_b: str) -> bool:
-    """
-    Compare two POS duplets for similarity:
+    """Compare two POS duplets for similarity.
+
     - Exact match across both elements
-    - If exact mismatch, check spaCy vector similarity for second element
+    - If exact mismatch, check spaCy vector similarity for second element.
     """
     if elem1_a == elem1_b and elem2_a == elem2_b:
         return True
@@ -119,9 +141,36 @@ def match_duplet(elem1_a: str, elem2_a: str, elem1_b: str, elem2_b: str) -> bool
     return elem1_a == elem1_b and sim_second > SIMILARITY_THRESHOLD
 
 
+def _match_triplet_with_logging(model_combo: list[str], cand_combo: list[str], i: int, j: int) -> bool:
+    pn_m, v_m, n_m = model_combo
+    pn_c, v_c, n_c = cand_combo
+    try:
+        sim_verb = nlp(v_m).similarity(nlp(v_c)) if nlp else 0.0
+        sim_noun = nlp(n_m).similarity(nlp(n_c)) if nlp else 0.0
+    except Exception:
+        sim_verb = sim_noun = 0.0
+    print(f"[Triplet] Model combo {i} vs Cand combo {j} -> VerbSim={sim_verb:.3f}, NounSim={sim_noun:.3f}")
+    return match_triplet(pn_m, v_m, n_m, pn_c, v_c, n_c)
+
+
+def _match_duplet_with_logging(
+    model_combo: list[str],
+    cand_combo: list[str],
+    i: int,
+    j: int,
+) -> bool:
+    el1_m, el2_m = model_combo
+    el1_c, el2_c = cand_combo
+    try:
+        sim_second_el = nlp(el2_m).similarity(nlp(el2_c)) if nlp else 0.0
+    except Exception:
+        sim_second_el = 0.0
+    print(f"[Duplet]  Model combo {i} vs Cand combo {j} -> SecondElSim={sim_second_el:.3f}")
+    return match_duplet(el1_m, el2_m, el1_c, el2_c)
+
+
 def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]]) -> float:
-    """Compute POS overlap score:
-    Computes an overlap score based on matching POS combinations.
+    """Compute an overlap score based on matching POS combinations.
 
     The score is the fraction of POS combinations from the `model_list` that
     find a match in the `cand_list`. A model combination is considered matched
@@ -136,52 +185,28 @@ def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]
     Returns:
         float: The fraction of model combinations that are matched in the candidate list.
                Returns 0.0 if either list is empty.
+
     """
-    if not model_list or not cand_list: # If either list is empty, no overlap is possible.
+    if not model_list or not cand_list:
         return 0.0
 
     matched_model_combos = 0
-    # Iterate through each POS combination from the model text.
     for i, model_combo in enumerate(model_list):
-        # For each model combination, search for a matching combination in the candidate list.
         for j, cand_combo in enumerate(cand_list):
-            match_found = False
-            # Check if both are triplets and try to match them.
             if len(model_combo) == 3 and len(cand_combo) == 3:
-                # Unpack triplet components.
-                pn_m, v_m, n_m = model_combo
-                pn_c, v_c, n_c = cand_combo
-                # Log similarity details for debugging/analysis (optional).
-                try:
-                    sim_verb = nlp(v_m).similarity(nlp(v_c)) if nlp else 0.0
-                    sim_noun = nlp(n_m).similarity(nlp(n_c)) if nlp else 0.0
-                except Exception: # Catch errors if tokens are out-of-vocabulary for spaCy similarity.
-                    sim_verb = sim_noun = 0.0
-                print(f"[Triplet] Model combo {i} vs Cand combo {j} -> VerbSim={sim_verb:.3f}, NounSim={sim_noun:.3f}")
-                if match_triplet(pn_m, v_m, n_m, pn_c, v_c, n_c):
-                    match_found = True
-            # Check if both are duplets and try to match them.
+                if _match_triplet_with_logging(model_combo, cand_combo, i, j):
+                    matched_model_combos += 1
+                    break
             elif len(model_combo) == 2 and len(cand_combo) == 2:
-                # Unpack duplet components.
-                el1_m, el2_m = model_combo
-                el1_c, el2_c = cand_combo
-                try:
-                    sim_second_el = nlp(el2_m).similarity(nlp(el2_c)) if nlp else 0.0
-                except Exception:
-                    sim_second_el = 0.0
-                print(f"[Duplet]  Model combo {i} vs Cand combo {j} -> SecondElSim={sim_second_el:.3f}")
-                if match_duplet(el1_m, el2_m, el1_c, el2_c):
-                    match_found = True
-
-            if match_found:
-                matched_model_combos += 1
-                break  # Once a model combination is matched, move to the next model combination.
-    # Score is the fraction of model combinations that were matched.
+                if _match_duplet_with_logging(model_combo, cand_combo, i, j):
+                    matched_model_combos += 1
+                    break
     return matched_model_combos / len(model_list) if model_list else 0.0
 
 
 def score_pos(model_text: str, candidate_text: str) -> float:
     """Main entry point for POS-based scoring with optional coreference:
+
     - Extract POS combinations from both texts
     - Calculate and log overlap score details
     - Return normalized score
