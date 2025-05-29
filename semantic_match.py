@@ -720,7 +720,8 @@ if __name__ == "__main__":
                         elif "distance" in metric_key_alias:
                             if value < DEFAULT_DISTANCE_THRESHOLD:
                                 color = "green"
-                            elif value < 1.0: # This 1.0 is another potential magic number, but not in scope for this task
+                            elif value < 1.0: # This 1.0 is another potential magic number,
+                                              # but not in scope for this task.
                                 color = "yellow"
                             else:
                                 color = "red"

@@ -66,8 +66,9 @@ def remove_unbalanced_repetition(
     top_words_percentage: float = 0.4,
     frequency_boundary: float = 0.3,
 ) -> bool:
-    """Check if the cumulative frequency of most common words (top percentage) is below a
-    certain boundary, suggesting the answer is not overly repetitive.
+    """Check if the cumulative frequency of most common words is below a boundary.
+
+    This suggests the answer is not overly repetitive.
 
     Note: The logic for determining 'top' words based on `doc_fre % top_words_percentage`
     seems unusual and might not accurately capture the intended "top percentage of words".
@@ -113,7 +114,10 @@ def remove_unbalanced_repetition(
     # Assuming it means to check the `top` most frequent words:
     num_top_words_to_check = math.ceil(doc_len % top_words_percentage)  # Potentially problematic logic for "top".
     # Add a log to show the calculated `num_top_words_to_check` for debugging.
-    # print(f"Debug: doc_len={doc_len}, top_words_percentage={top_words_percentage}, calculated num_top_words_to_check={num_top_words_to_check}")
+    # print(
+    #     f"Debug: doc_len={doc_len}, top_words_percentage={top_words_percentage}, "
+    #     f"calculated num_top_words_to_check={num_top_words_to_check}"
+    # )
 
     cumulative_frequency_count = 0
     # Get word frequencies sorted in descending order.
@@ -233,7 +237,8 @@ def get_first_unique_word_sequence(text: str) -> str:
 
 
 def check_for_repeating_sequences(answer: str) -> bool:
-    """Check if the initial unique word sequence (from `get_first_unique_word_sequence`) repeats more than once in the answer.
+    """Check if the initial unique word sequence (from `get_first_unique_word_sequence`)
+    repeats more than once in the answer.
 
     Args:
         answer (str): The text string to evaluate.
@@ -349,7 +354,8 @@ def get_unique_words_from_string(sentence: str) -> set[str]:
 
 
 def contains_sufficient_grammatical_structure(pos_tags_dict: Dict[str, str]) -> bool:
-    """Check if a sentence, represented by its Part-of-Speech (POS) tags, contains essential grammatical components (like auxiliaries or determiners).
+    """Check if a sentence, represented by its Part-of-Speech (POS) tags, contains
+    essential grammatical components (like auxiliaries or determiners).
 
     This can be used to heuristically identify sentences that might be composed
     predominantly of keywords rather than forming full grammatical structures.

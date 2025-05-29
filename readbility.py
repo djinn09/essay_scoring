@@ -457,9 +457,9 @@ def perform_readability_analysis(
                 logger.error(
                     "Normalization returned a different number of items than input.Skipping normalized metrics.",
                 )
-        except ValueError as e_norm_value:  # Catch errors from normalize_metrics (e.g., zero variance)
+        except ValueError:  # Catch errors from normalize_metrics (e.g., zero variance)
             logger.warning(
-                f"Failed to normalize metrics due to ValueError: {e_norm_value}. Normalized distances will be None.",
+                "Failed to normalize metrics due to ValueError. Normalized distances will be None.",
                 exc_info=True,
             )
         except Exception:  # Catch any other unexpected errors during normalization

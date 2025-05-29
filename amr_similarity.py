@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # Attempt to load the model once when the module is imported.
 # This makes it available globally within this module.
 # Users of the AMRSimilarityCalculator class will pass this pre-loaded model.
-# TODO: (Jules, #1) Consider making the model path configurable via environment variable or a config file
+# TODO(Jules): (Jules, #1) Consider making the model path configurable via environment variable or a config file
 # for more flexibility, instead of hardcoding.
 # For now, this path is a placeholder and would need to be valid in the execution environment.
 MAX_TEXT_SAMPLE_LENGTH = 100
@@ -103,7 +103,7 @@ class AMRSimilarityCalculator:
     Future features could include similarity based on frames, semantic roles, reentrancies, etc.
     """
 
-    def __init__(self, stog_model: StoG) -> None:  # TODO: (Jules, #1) Replace Any with specific amrlib model type
+    def __init__(self, stog_model: StoG) -> None:  # TODO(Jules): (Jules, #1) Replace Any with specific amrlib model type
         """Initialize AMRSimilarityCalculator with a pre-loaded `amrlib` StoG model.
 
         Args:
@@ -519,7 +519,7 @@ class AMRSimilarityCalculator:
     def _calculate_root_similarity(
         self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
     ) -> None:
-        """Calculates root similarity and updates the results dictionary."""
+        """Calculate root similarity and update the results dictionary."""
         try:
             root1 = self._get_root_concept(amr1_penman)
             root2 = self._get_root_concept(amr2_penman)

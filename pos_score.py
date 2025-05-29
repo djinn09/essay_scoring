@@ -110,7 +110,7 @@ def pos_combinations(sentences: list[str]) -> list[list[str]]:
     return pos_combinations
 
 
-def match_triplet(pronoun_a: str, verb_a: str, noun_a: str, *, pronoun_b: str, verb_b: str, noun_b: str) -> bool:
+def match_triplet(pronoun_a: str, verb_a: str, noun_a: str, *, pronoun_b: str, verb_b: str, noun_b: str) -> bool:  # pylint: disable=too-many-arguments
     """Compare two POS triplets for similarity.
 
     - Exact match across all three elements
