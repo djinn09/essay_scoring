@@ -237,7 +237,8 @@ def get_first_unique_word_sequence(text: str) -> str:
 
 
 def check_for_repeating_sequences(answer: str) -> bool:
-    """Check if the initial unique word sequence (from `get_first_unique_word_sequence`)
+    """Check if the initial unique word sequence (from `get_first_unique_word_sequence`).
+
     repeats more than once in the answer.
 
     Args:
@@ -354,7 +355,8 @@ def get_unique_words_from_string(sentence: str) -> set[str]:
 
 
 def contains_sufficient_grammatical_structure(pos_tags_dict: Dict[str, str]) -> bool:
-    """Check if a sentence, represented by its Part-of-Speech (POS) tags, contains
+    """Check if a sentence, represented by its Part-of-Speech (POS) tags, contains.
+
     essential grammatical components (like auxiliaries or determiners).
 
     This can be used to heuristically identify sentences that might be composed

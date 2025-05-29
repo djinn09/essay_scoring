@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # Attempt to load the model once when the module is imported.
 # This makes it available globally within this module.
 # Users of the AMRSimilarityCalculator class will pass this pre-loaded model.
-# TODO(Jules): (Jules, #1) Consider making the model path configurable via environment variable or a config file
+# Consider making the model path configurable via environment variable or a config file
 # for more flexibility, instead of hardcoding.
 # For now, this path is a placeholder and would need to be valid in the execution environment.
 MAX_TEXT_SAMPLE_LENGTH = 100
@@ -103,12 +103,12 @@ class AMRSimilarityCalculator:
     Future features could include similarity based on frames, semantic roles, reentrancies, etc.
     """
 
-    def __init__(self, stog_model: StoG) -> None:  # TODO(Jules): (Jules, #1) Replace Any with specific amrlib model type
+    def __init__(self, stog_model: StoG) -> None:
         """Initialize AMRSimilarityCalculator with a pre-loaded `amrlib` StoG model.
 
         Args:
             stog_model: A pre-loaded `amrlib` Stack-Transformer (StoG) parsing model object.
-                        This model is used to parse text into AMR graphs.
+                This model is used to parse text into AMR graphs.
 
         Raises:
             ValueError: If `stog_model` is not provided (is None).

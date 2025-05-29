@@ -254,7 +254,7 @@ class KeywordMatcher:
         """Perform Part-of-Speech (POS) tagging on a tuple of tokens.
 
         Args:
-            tokens (tuple[str, ...]): A tuple of string tokens.
+            tokens (tuple[str, ...): A tuple of string tokens.
 
         Returns:
             list[tuple[str, str]]: A list of (token, POS_tag) tuples. Returns an empty list
@@ -323,7 +323,9 @@ class KeywordMatcher:
                         # Step 3 (for POS path): Normalize (lemmatize) the POS-filtered tokens.
                         keywords = set(
                             KeywordMatcher._normalize_tokens(
-                                tuple(pos_filtered_tokens), use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
+                                tuple(pos_filtered_tokens),
+                                use_lemmatization=self.effective_use_lemmatization,
+                                lemmatizer=_GLOBAL_LEMMATIZER,
                             ),
                         )
                     else:
@@ -334,7 +336,9 @@ class KeywordMatcher:
             # Step 3 (for non-POS path): Directly normalize (lemmatize) the preprocessed tokens.
             keywords = set(
                 KeywordMatcher._normalize_tokens(
-                    processed_tokens_tuple, use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
+                    processed_tokens_tuple,
+                    use_lemmatization=self.effective_use_lemmatization,
+                    lemmatizer=_GLOBAL_LEMMATIZER,
                 ),
             )
 
@@ -482,7 +486,9 @@ class KeywordMatcher:
         # Normalize (lemmatize if enabled) tokens of Paragraph B to match normalization of keywords_a_set.
         normalized_tokens_b_set = set(
             KeywordMatcher._normalize_tokens(
-                tuple(processed_tokens_b_list), use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
+                tuple(processed_tokens_b_list),
+                use_lemmatization=self.effective_use_lemmatization,
+                lemmatizer=_GLOBAL_LEMMATIZER,
             ),
         )
 

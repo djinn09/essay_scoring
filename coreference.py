@@ -64,10 +64,9 @@ from typing import TYPE_CHECKING, Any, Optional  # Import necessary types for an
 
 import gender_guesser.detector as gender
 import spacy
-from spacy.tokens import Doc
 
 if TYPE_CHECKING:
-    from spacy.tokens import Token
+    from spacy.tokens import Doc, Token
 
 # --- Constants ---
 PROXIMITY_THRESHOLD = 0.05  # Used for candidate scoring
@@ -415,14 +414,11 @@ def is_pleonastic_it(token: Token) -> bool:
 
     verb = token.head  # The verb governed by 'it'.
     pleonastic = False
-    if verb.pos_ == "VERB" and \
+    if (verb.pos_ == "VERB" and \
        (_check_weather_verbs(verb) or \
         _check_time_attributes(verb) or \
-        _check_clausal_complements(verb)):
-        pleonastic = True
-    # Rule 5: Auxiliary 'be' + time/numeric attribute or cleft constructions
-    elif verb.lemma_ == "be" and verb.pos_ == "AUX" and \
-         (_check_time_attributes(verb) or _check_cleft_construction(verb)): # Re-use time attribute check
+        _check_clausal_complements(verb))) or (verb.lemma_ == "be" and verb.pos_ == "AUX" and \
+         (_check_time_attributes(verb) or _check_cleft_construction(verb))):
         pleonastic = True
 
     return pleonastic
@@ -541,13 +537,16 @@ def rule_based_coref_resolution_v4(
             rule = "N/A"
 
             if token.pos_ == "PRON":
+                options = {
+                    "start_search_token_idx": start_search_token_idx,
+                    "processed_mentions": processed_mentions,
+                    "similarity_threshold": similarity_threshold,
+                    "use_similarity_fallback": use_similarity_fallback,
+                }
                 antecedent, confidence, rule = _resolve_pronoun(
                     token,
                     doc,
-                    start_search_token_idx,
-                    processed_mentions,
-                    similarity_threshold,
-                    use_similarity_fallback,
+                    options=options,
                 )
             elif token.pos_ == "PROPN":
                 antecedent, confidence, rule = _resolve_proper_noun(
@@ -580,16 +579,33 @@ def rule_based_coref_resolution_v4(
     return coref_pairs_with_indices
 
 
-def _resolve_pronoun( # pylint: disable=too-many-arguments
+def _resolve_pronoun(
     token: Token,
     doc: Doc,
     *,
-    start_search_token_idx: int,
-    processed_mentions: set,
-    similarity_threshold: float,
-    use_similarity_fallback: bool,
+    options: dict,
 ) -> tuple[Optional[Token], float, str]:
-    """Resolve a pronoun token to its antecedent if possible."""
+    """Resolve a pronoun token to its antecedent if possible.
+
+    Args:
+        token: The pronoun token to resolve.
+        doc: The spaCy Doc object.
+        options: Dictionary containing 'start_search_token_idx', 'processed_mentions',
+            'similarity_threshold', and 'use_similarity_fallback'.
+
+    """
+    start_search_token_idx = options.get("start_search_token_idx")
+    if start_search_token_idx is None:
+        start_search_token_idx = 0
+    processed_mentions = options.get("processed_mentions")
+    if processed_mentions is None:
+        processed_mentions = set()
+    similarity_threshold = options.get("similarity_threshold")
+    if similarity_threshold is None:
+        similarity_threshold = 0.5
+    use_similarity_fallback = options.get("use_similarity_fallback")
+    if use_similarity_fallback is None:
+        use_similarity_fallback = False
     antecedent = None
     confidence = 0.0
     rule = "N/A"
@@ -867,11 +883,13 @@ if __name__ == "__main__":
             if pairs_with_indices:
                 # Print results in the desired format
                 for pair in pairs_with_indices:
-                    mention_span, antecedent_span, conf, rule = pair
+                    mention_span, antecedent_span, conf, rule_name = pair
                     print(
-                        f"  - Mention: '{mention_span['text']}' ({mention_span['start']}:{mention_span['end']}) -> "
-                        f"Ante: '{antecedent_span['text']}' ({antecedent_span['start']}:{antecedent_span['end']}) " # Shortened "Antecedent"
-                        f"(Conf: {conf:.2f}, Rule: {rule})",
+                        f"  - Mention: '{mention_span['text']}' "
+                        f"({mention_span['start']}:{mention_span['end']}) -> "
+                        f"Ante: '{antecedent_span['text']}' "
+                        f"({antecedent_span['start']}:{antecedent_span['end']}) "
+                        f"(Conf: {conf:.2f}, Rule: {rule_name})",
                     )
             else:
                 print("  No pairs found.")

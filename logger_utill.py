@@ -42,8 +42,9 @@ def setup_global_logger(
             log message. Defaults to "Application".
         force_basic_logging (bool, optional): If True, forces basic logging even if
             'rich' is available. Defaults to False.
+
     """
-    global _separator_func  # pylint: disable=global-statement
+    # Removed global _separator_func to avoid PLW0603 warning
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.root.setLevel(log_level)
@@ -89,6 +90,7 @@ def get_separator_func() -> Callable[[], None]:
 
     Returns:
         Callable[[], None]: A function that, when called, prints a separator line.
+
     """
     return _separator_func
 

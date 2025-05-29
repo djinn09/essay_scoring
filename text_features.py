@@ -69,7 +69,6 @@ import warnings
 from collections import defaultdict
 from typing import Any, Optional  # Added Union earlier, now just using specific types
 
-import nltk # Moved from bottom for E402
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field  # Pydantic imports
@@ -710,15 +709,16 @@ def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> Graph
     if sub_nodes < min_sub_nodes_for_density:
         message = f"Subgraph has < {min_sub_nodes_for_density} nodes ({sub_nodes}), so density is considered 0."
         # graph_sim_score remains 0.0, sub_density_val remains None (or can be set to 0.0)
-        sub_density_val = 0.0
     else:
         try:
             current_density = nx.density(subgraph)
-            # nx.density can return NaN for graphs with nodes but no possible edges (e.g., isolated nodes if N < 2, caught above)
+            # nx.density can return NaN for graphs with nodes but no possible edges
+            # (e.g., isolated nodes if N < 2, caught above)
             # or if the graph is degenerate in some way for the formula.
             if np.isnan(current_density):
                 logger.debug(
-                    "Subgraph density calculated as NaN (likely isolated nodes or specific graph structure), treating as 0.",
+                    "Subgraph density calculated as NaN (likely isolated nodes or specific graph structure), "
+                    "treating as 0.",
                 )
                 sub_density_val = 0.0
             else:
@@ -948,10 +948,7 @@ def compute_plagiarism_score_fast(
     denominator = (
         min(len(t1_tokens), len(t2_tokens)) * config.match_score
     )  # Max possible score for shorter text if perfect match
-    if denominator == 0:  # Avoid division by zero if match_score is 0 or texts were empty
-        normalized_score = 0.0
-    else:
-        normalized_score = max_overall_sw_score / denominator
+    normalized_score = 0.0 if denominator == 0 else max_overall_sw_score / denominator
 
     # Ensure the score is clamped between 0.0 and 1.0.
     # It might exceed 1.0 if match_score > 1 or if normalization logic changes.
@@ -1003,11 +1000,8 @@ def calculate_sorensen_dice_coefficient(text1: str, text2: str) -> SorensenDiceC
     intersection_len = len(set1.intersection(set2))
     sum_of_set_lengths = len(set1) + len(set2)
     coefficient = (2 * intersection_len / sum_of_set_lengths) if sum_of_set_lengths > 0 else 0.0
-    # If both sets are empty, sum_of_set_lengths is 0. If intersection_len is also 0,
-    # this correctly yields 0.0. If both sets were identical and non-empty, it's 1.0.
-    # If both sets are empty and we want to consider them perfectly similar, this should be 1.0.
-    # However, standard Dice for empty sets is 0. Let's stick to that unless a different definition is required.
-    # If both sets are empty, len(set1)=0, len(set2)=0, intersection_len=0, sum_of_set_lengths=0 -> coefficient=0.0. This is fine.
+    # If both sets are empty, len(set1)=0, len(set2)=0, intersection_len=0, sum_of_set_lengths=0 -> coefficient=0.0.
+    # This is fine.
     return SorensenDiceCoefficient(coefficient=coefficient)
 
 
@@ -1229,7 +1223,7 @@ def extract_lexical_features(
     except ValueError:  # Catch errors like "empty vocabulary" if all texts are stopwords or too short.
         logger.exception( # TRY401 Fix
             "TF-IDF Vectorization error in extract_lexical_features. "
-            "This can happen if texts are empty or contain only stopwords after preprocessing."
+            "This can happen if texts are empty or contain only stopwords after preprocessing.",
         )
         # Return empty features if TF-IDF fails critically.
         return LexicalFeaturesAnalysis(student_features=[])
@@ -1267,7 +1261,7 @@ def extract_lexical_features(
         linkage_matrix = linkage(pairwise_dist_matrix_condensed, method=linkage_method)
     except ValueError:  # `linkage` also needs more than 1 observation.
         logger.exception( # TRY401 Fix
-            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape})."
+            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape}).",
         )
         error_feature = LexicalClusterFeature(
             coph_min=0.0,
@@ -1379,7 +1373,7 @@ def run_single_pair_text_analysis(
 
     Returns:
         SinglePairAnalysisResult: A Pydantic model containing all computed similarity metrics
-                                  for the input pair of texts.
+                                  for the input pair of texts
 
     """
     logger.info(
@@ -1440,9 +1434,13 @@ def run_single_pair_text_analysis(
     #     if 'nlp' in globals() and nlp: # Check if global 'nlp' (spaCy model) is loaded.
     #         s_graph_student = create_semantic_graph_spacy(inputs.student_text, nlp)
     #         s_graph_model = create_semantic_graph_spacy(inputs.model_answer, nlp)
-    #         results.semantic_graph_similarity = calculate_semantic_graph_similarity_spacy(s_graph_student, s_graph_model)
+    #         results.semantic_graph_similarity = calculate_semantic_graph_similarity_spacy(
+    # s_graph_student, s_graph_model
+    # )
     #     else:
-    #         logger.info("spaCy model (nlp) not available. Skipping semantic graph similarity in single pair analysis.")
+    #         logger.info(
+    #             "spaCy model (nlp) not available. Skipping semantic graph similarity in single pair analysis."
+    #         )
     # except NameError: # If 'nlp' is not defined at all.
     #     logger.info("spaCy (nlp variable) not defined. Skipping semantic graph similarity for single pair.")
 
@@ -1498,8 +1496,8 @@ def run_full_text_analysis(
                 nodes=corpus_graph.number_of_nodes(),
                 edges=corpus_graph.number_of_edges(),
                 # Density is defined for N > 1. nx.density handles N <= 1 returning 0 or NaN.
-                density=nx.density(corpus_graph) if corpus_graph.number_of_nodes() > 1 else 0.0,
-            )
+                               density=nx.density(corpus_graph) if corpus_graph.number_of_nodes() > 1 else 0.0,
+                       )
             logger.info(
                 "Corpus graph built successfully: %d nodes, %d edges.",
                 results.corpus_graph_metrics.nodes,
@@ -1527,8 +1525,8 @@ def run_full_text_analysis(
             "Lexical features extracted for %d students.",
             len(lexical_features_result.student_features) if lexical_features_result else 0,
         )
-    except Exception as e:  # Catch broad exception to ensure pipeline continues if this step fails.
-        logger.exception(f"Error extracting lexical features: {e}")
+    except Exception:  # Catch broad exception to ensure pipeline continues if this step fails.
+        logger.exception("Error extracting lexical features.")
         results.student_lexical_features = None  # Or LexicalFeaturesAnalysis(student_features=[])
 
     # --- Step 3: Per-student analysis (similarity of each student to all model answers) ---
