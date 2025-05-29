@@ -171,18 +171,20 @@ class KeywordMatcher:
             log_message += f" Allowed POS Tags: {self.resolved_allowed_pos_tags or 'None (defaulting or error)'}"
         logger.info(log_message)
 
+    @staticmethod
     @lru_cache(maxsize=128)  # Cache results for previously seen texts.
-    def _preprocess_text(self, text: str) -> list[str]:
+    def _preprocess_text(text: str, stop_words_set: frozenset[str]) -> list[str]:
         """Perform basic preprocessing on a text string.
 
         Steps:
         1. Converts text to lowercase.
         2. Removes punctuation using `PUNCTUATION_TABLE`.
         3. Tokenizes the text using `nltk.word_tokenize`.
-        4. Filters out tokens that are not alphanumeric or are in the `self.stop_words` list.
+        4. Filters out tokens that are not alphanumeric or are in the `stop_words_set`.
 
         Args:
             text (str): The input text string.
+            stop_words_set (frozenset[str]): The set of stopwords to use.
 
         Returns:
             list[str]: A list of processed (cleaned, tokenized, filtered) tokens.
@@ -198,7 +200,7 @@ class KeywordMatcher:
             # Step 3: Tokenize. Requires 'punkt' NLTK data.
             tokens = word_tokenize(cleaned_text)
             # Step 4: Filter out stopwords and non-alphanumeric tokens.
-            processed_tokens = [token for token in tokens if token.isalnum() and token not in self.stop_words]
+            processed_tokens = [token for token in tokens if token.isalnum() and token not in stop_words_set]
             logger.debug(f"Preprocessing result for text '{text[:30]}...': {len(processed_tokens)} tokens returned.")
             return processed_tokens
         except LookupError:  # NLTK's 'punkt' tokenizer data might be missing.
@@ -211,12 +213,17 @@ class KeywordMatcher:
             logger.exception(f"Unexpected error during basic preprocessing of text: '{text[:50]}...'.")
             return []
 
+    @staticmethod
     @lru_cache(maxsize=128)  # Cache results for previously seen token tuples.
-    def _normalize_tokens(self, tokens: tuple[str, ...]) -> tuple[str, ...]:
+    def _normalize_tokens(
+        tokens: tuple[str, ...], use_lemmatization: bool, lemmatizer: Optional[WordNetLemmatizer],
+    ) -> tuple[str, ...]:
         """Normalize a tuple of tokens, primarily by lemmatization if enabled and available.
 
         Args:
             tokens (tuple[str, ...]): A tuple of string tokens.
+            use_lemmatization (bool): Flag indicating if lemmatization should be applied.
+            lemmatizer (Optional[WordNetLemmatizer]): The lemmatizer instance to use.
 
         Returns:
             tuple[str, ...]: A tuple of normalized (lemmatized) tokens. Returns the original
@@ -224,24 +231,26 @@ class KeywordMatcher:
 
         """
         # Check if lemmatization should be applied and if the global lemmatizer is available.
-        if not self.effective_use_lemmatization or _GLOBAL_LEMMATIZER is None:
+        if not use_lemmatization or lemmatizer is None:
             return tokens  # Return original tokens if no lemmatization.
         try:
             # Lemmatize each token. Requires 'wordnet' and 'omw-1.4' NLTK data.
-            normalized = tuple(_GLOBAL_LEMMATIZER.lemmatize(token) for token in tokens)
+            normalized = tuple(lemmatizer.lemmatize(token) for token in tokens)
             logger.debug(f"Lemmatized {len(tokens)} tokens successfully.")
             return normalized
         except LookupError:  # NLTK data for lemmatization might be missing.
             logger.exception(
-                f"NLTK LookupError during lemmatization (likely 'wordnet' or 'omw-1.4' data missing). Tokens: {tokens[:10]}",
+                "NLTK LookupError during lemmatization (likely 'wordnet' or "
+                f"'omw-1.4' data missing). Tokens: {tokens[:10]}",
             )
             return tokens  # Return original tokens if lemmatization fails.
         except Exception:  # Catch any other unexpected errors.
             logger.exception(f"Unexpected error during lemmatization of {len(tokens)} tokens.")
             return tokens
 
+    @staticmethod
     @lru_cache(maxsize=128)  # Cache results for previously seen token tuples.
-    def _get_pos_tags(self, tokens: tuple[str, ...]) -> list[tuple[str, str]]:
+    def _get_pos_tags(tokens: tuple[str, ...]) -> list[tuple[str, str]]:
         """Perform Part-of-Speech (POS) tagging on a tuple of tokens.
 
         Args:
@@ -274,9 +283,11 @@ class KeywordMatcher:
         """Extract a set of unique keywords from Paragraph A based on the matcher's configuration.
 
         The process involves:
-        1. Basic preprocessing (`_preprocess_text`).
-        2. If POS tagging is enabled: POS tag tokens, filter by `resolved_allowed_pos_tags`.
-        3. Normalization (lemmatization if enabled) of the resulting tokens.
+        1. Basic preprocessing (`KeywordMatcher._preprocess_text`).
+        2. If POS tagging is enabled: POS tag tokens (`KeywordMatcher._get_pos_tags`),
+           filter by `resolved_allowed_pos_tags`.
+        3. Normalization (lemmatization if enabled using `KeywordMatcher._normalize_tokens`)
+           of the resulting tokens.
 
         Args:
             paragraph_a (str): The text of Paragraph A from which to extract keywords.
@@ -287,7 +298,8 @@ class KeywordMatcher:
 
         """
         # Step 1: Perform initial preprocessing (lowercase, punctuation, tokenize, stopwords).
-        processed_tokens_list = self._preprocess_text(paragraph_a)
+        # Pass self.stop_words (as frozenset for caching) to the static method.
+        processed_tokens_list = KeywordMatcher._preprocess_text(paragraph_a, frozenset(self.stop_words))
         if not processed_tokens_list:
             logger.warning("Keyword extraction from Paragraph A failed: Preprocessing returned no tokens.")
             return set()  # No tokens to process further.
@@ -303,20 +315,28 @@ class KeywordMatcher:
                     "Cannot extract POS-based keywords from Paragraph A.",
                 )
             else:
-                tagged_tokens = self._get_pos_tags(processed_tokens_tuple)
+                tagged_tokens = KeywordMatcher._get_pos_tags(processed_tokens_tuple)
                 if tagged_tokens:
                     # Filter tokens based on whether their POS tag is in the allowed set.
                     pos_filtered_tokens = [word for word, tag in tagged_tokens if tag in self.resolved_allowed_pos_tags]
                     if pos_filtered_tokens:
                         # Step 3 (for POS path): Normalize (lemmatize) the POS-filtered tokens.
-                        keywords = set(self._normalize_tokens(tuple(pos_filtered_tokens)))
+                        keywords = set(
+                            KeywordMatcher._normalize_tokens(
+                                tuple(pos_filtered_tokens), self.effective_use_lemmatization, _GLOBAL_LEMMATIZER,
+                            ),
+                        )
                     else:
                         logger.warning("No tokens from Paragraph A matched the allowed POS tags after POS tagging.")
                 else:  # POS tagging itself failed (e.g., missing NLTK data).
                     logger.error("Keyword extraction from Paragraph A failed: POS tagging returned no results.")
         else:
             # Step 3 (for non-POS path): Directly normalize (lemmatize) the preprocessed tokens.
-            keywords = set(self._normalize_tokens(processed_tokens_tuple))
+            keywords = set(
+                KeywordMatcher._normalize_tokens(
+                    processed_tokens_tuple, self.effective_use_lemmatization, _GLOBAL_LEMMATIZER,
+                ),
+            )
 
         # Final logging based on outcome.
         if not keywords:
@@ -399,8 +419,10 @@ class KeywordMatcher:
 
         """
         # Preprocess both paragraphs to get lists of filtered tokens.
-        processed_tokens_a_list = self._preprocess_text(paragraph_a)
-        processed_tokens_b_list = self._preprocess_text(paragraph_b)
+        # Pass self.stop_words (as frozenset for caching) to the static method.
+        stop_words_fs = frozenset(self.stop_words)
+        processed_tokens_a_list = KeywordMatcher._preprocess_text(paragraph_a, stop_words_fs)
+        processed_tokens_b_list = KeywordMatcher._preprocess_text(paragraph_b, stop_words_fs)
 
         # If both paragraphs result in empty token lists (e.g., they were empty or all stopwords).
         if not processed_tokens_a_list and not processed_tokens_b_list:
@@ -451,13 +473,18 @@ class KeywordMatcher:
 
         """
         # Preprocess Paragraph B (lowercase, punctuation, tokenize, stopwords).
-        processed_tokens_b_list = self._preprocess_text(paragraph_b)
+        # Pass self.stop_words (as frozenset for caching) to the static method.
+        processed_tokens_b_list = KeywordMatcher._preprocess_text(paragraph_b, frozenset(self.stop_words))
         if not processed_tokens_b_list:  # If Paragraph B is empty after preprocessing.
             logger.warning("Paragraph B is empty after preprocessing. Keyword coverage score is 0.")
             return {"matched_keywords": [], "matched_keyword_count": 0, "keyword_coverage_score": 0.0}
 
         # Normalize (lemmatize if enabled) tokens of Paragraph B to match normalization of keywords_a_set.
-        normalized_tokens_b_set = set(self._normalize_tokens(tuple(processed_tokens_b_list)))
+        normalized_tokens_b_set = set(
+            KeywordMatcher._normalize_tokens(
+                tuple(processed_tokens_b_list), self.effective_use_lemmatization, _GLOBAL_LEMMATIZER,
+            ),
+        )
 
         # Find common keywords by intersecting the set of A's keywords with B's normalized tokens.
         matched_keywords_set = keywords_a_set.intersection(normalized_tokens_b_set)
@@ -492,7 +519,7 @@ if __name__ == "__main__":
             rich_console_available = True
         except ImportError:
             separator = lambda: print("-" * 80)
-        logger.info("Keyword Matching Example [bold green](Rich logging enabled)[/bold green]")
+        logger.info("Keyword Matching Example [bold green](Rich logging)[/bold green]") # Shortened
     else:
         logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         separator = lambda: print("-" * 80)
@@ -521,7 +548,7 @@ if __name__ == "__main__":
 
         cov_score = scores.keyword_coverage_score
         cov_color = "green" if cov_score > GOOD_KEYWORD_COVERAGE else "yellow" if cov_score > 0 else "red"
-        logger.info(f"  Keyword Coverage Score: [{cov_color}]{cov_score:.4f}[/{cov_color}]")
+        logger.info(f"  Keyword Coverage: [{cov_color}]{cov_score:.4f}[/{cov_color}]") # Shortened
 
         cos_score = scores.vocabulary_cosine_similarity
         cos_color = "green" if cos_score > GOOD_VOCAB_COSINE else "yellow" if cos_score > BAD_VOCAB_COSINE else "red"

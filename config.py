@@ -161,7 +161,7 @@ class Settings(BaseSettings):
 
 
 def _load_env_file(effective_env: str, config_dir: Path) -> None:
-    """Loads environment-specific .env file."""
+    """Load environment-specific .env file."""
     env_filename = f"{effective_env}.env"
     env_file_path = config_dir / env_filename
     if env_file_path.exists() and env_file_path.is_file():
@@ -172,7 +172,7 @@ def _load_env_file(effective_env: str, config_dir: Path) -> None:
 
 
 def _load_yaml_config(effective_env: str, config_dir: Path) -> dict:
-    """Loads YAML configuration file."""
+    """Load YAML configuration file."""
     yaml_config_path = config_dir / "envs" / f"{effective_env}.yaml"
     file_config = {}
     if yaml_config_path.exists():
@@ -194,7 +194,7 @@ def _load_yaml_config(effective_env: str, config_dir: Path) -> dict:
 
 
 def _validate_and_log_env_settings(settings: Settings, effective_env: str, file_config: dict) -> None:
-    """Validates and logs environment settings."""
+    """Validate and log environment settings."""
     if settings.env != effective_env and (
         "env" not in file_config or file_config.get("env", "").lower() != settings.env.lower()
     ):
@@ -244,11 +244,11 @@ def get_settings() -> Settings:
 
         logging.info("Settings loaded successfully.")
         return settings
-    except ValidationError:
+    except ValidationError as e:
         logging.exception("Error validating settings")
         msg = "Failed to load or validate application settings."
         raise SystemExit(msg) from e
-    except Exception:
+    except Exception as e:
         logging.exception("An unexpected error occurred during settings initialization")
         msg = "Critical error during settings initialization."
         raise SystemExit(msg) from e
