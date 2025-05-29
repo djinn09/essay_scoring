@@ -404,16 +404,35 @@ def perform_readability_analysis(
         corpus_texts.extend(additional_texts_for_corpus)
 
     corpus_raw_metrics: list[ReadabilityMetricsRaw] = []
+    # Define default zero metrics once for reuse in case of errors
+    default_zero_metrics = ReadabilityMetricsRaw(
+        flesch_reading_ease=0.0, flesch_kincaid_grade=0.0, smog_index=0.0,
+        gunning_fog=0.0, dale_chall=0.0, automated_readability_index=0.0,
+        coleman_liau_index=0.0, linsear_write_formula=0.0, difficult_words=0,
+        sentence_count=0, avg_sentence_length=0.0, syllable_count=0, lexicon_count=0
+    )
+
     for i, text_item in enumerate(corpus_texts):
         try:
-            corpus_raw_metrics.append(get_readability_metrics(text_item))
-        except Exception:
+            # Pre-check for common invalid inputs not robustly handled by textstat or to avoid exceptions
+            if not isinstance(text_item, str) or not text_item.strip():
+                logger.warning(
+                    f"Corpus text at index {i} is invalid (None, empty, or whitespace). "
+                    f"Using default zero metrics. Text preview: '{str(text_item)[:50]}...'"
+                )
+                # get_readability_metrics already handles empty/whitespace by returning defaults,
+                # but this explicit check handles None or other non-string types more gracefully
+                # before they hit get_readability_metrics, which would raise TypeError for non-string.
+                raw_metrics = default_zero_metrics
+            else:
+                raw_metrics = get_readability_metrics(text_item)
+            corpus_raw_metrics.append(raw_metrics)
+        except Exception as e:  # noqa: PERF203 # Individual text items can fail processing; loop must continue with placeholder.
             logger.exception(
-                f"Could not get raw metrics for corpus text at index {i}: '{text_item[:50]}...'.",
+                f"Could not get raw metrics for corpus text at index {i}: '{str(text_item)[:50]}...'. "
+                f"Appending default zero metrics. Error: {e}",
             )
-            # Optionally skip this text or handle error
-            # For now, we'll let it fail if any corpus text metric generation fails,
-            # or one could append a default zero metric model.
+            corpus_raw_metrics.append(default_zero_metrics) # Ensure list correspondence
 
     norm_student_metrics: Optional[ReadabilityMetricsNormalized] = None
     norm_model_metrics: Optional[ReadabilityMetricsNormalized] = None

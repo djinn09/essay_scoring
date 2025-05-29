@@ -61,9 +61,9 @@ For example, the word "running" would be stemmed to "run".
 Dictionary
 ----------
 
-The dictionary used to look up the semantic similarity between words is a text file specified by 
+The dictionary used to look up the semantic similarity between words is a text file specified by
 the `DICTIONARY_FILE` environment variable.
-The file should contain one entry per line, with each entry in the format `word1 word2 similarity`, 
+The file should contain one entry per line, with each entry in the format `word1 word2 similarity`,
 where `word1` and `word2` are the two words and `similarity` is their semantic similarity.
 
 Environment Variables

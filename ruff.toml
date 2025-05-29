@@ -5,4 +5,14 @@ line-length = 120
 indent-width = 4
 
 select = ["ALL"]
-ignore = ["UP006", "ERA001", "UP007", "LOG015", "G004", "TRY300", "BLE001", "E731"]
+ignore = [
+    "UP006",
+    "ERA001",
+    "UP007",
+    "LOG015",
+    "G004",
+    "TRY300",
+    "BLE001",
+    "E731",
+    "T201",
+]
