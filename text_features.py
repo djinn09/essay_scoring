@@ -69,6 +69,7 @@ import warnings
 from collections import defaultdict
 from typing import Any, Optional  # Added Union earlier, now just using specific types
 
+import nltk # Moved from bottom for E402
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field  # Pydantic imports
@@ -534,7 +535,7 @@ def simple_tokenize(text: str) -> list[str]:
 
 
 def create_word_vectors(texts: list[str]) -> WordVectorCreationResult:
-    """Creates a word-document matrix from a list of texts using CountVectorizer.
+    """Create a word-document matrix from a list of texts using CountVectorizer.
 
     The function uses `simple_tokenize` for tokenization. The resulting matrix
     is a sparse representation (CSR format) of word counts per document.
@@ -567,13 +568,13 @@ def create_word_vectors(texts: list[str]) -> WordVectorCreationResult:
         # Get the list of unique words (vocabulary) learned by the vectorizer.
         words: list[str] = vectorizer.get_feature_names_out().tolist()
         return WordVectorCreationResult(word_matrix_csr_scipy=word_matrix, words_vocabulary=words)
-    except Exception as e:  # Catching generic Exception, consider more specific ones if known.
-        logger.exception(f"Error in create_word_vectors during vectorization: {e}")
+    except Exception:  # Catching generic Exception, consider more specific ones if known.
+        logger.exception("Error in create_word_vectors during vectorization.") # TRY401 Fix
         return WordVectorCreationResult()  # Return empty result on error.
 
 
 def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.Graph:
-    """Builds a word co-occurrence graph based on cosine similarity of word vectors.
+    """Build a word co-occurrence graph based on cosine similarity of word vectors.
 
     Nodes in the graph are words from the vocabulary. An edge exists between two
     words if their cosine similarity (based on their occurrences across documents)
@@ -657,7 +658,7 @@ def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.
 
 
 def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> GraphSimilarityOutput:
-    """Calculates similarity between two texts based on the density of their common words' subgraph.
+    """Calculate similarity between two texts based on the density of their common words' subgraph.
 
     The method identifies common words between `text1` and `text2` that also exist
     in the provided `graph`. A subgraph is induced from these common words. The density
@@ -769,7 +770,7 @@ def preprocess_sw(text: str, *, lowercase: bool = True, remove_punct: bool = Tru
 
 
 def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[int]]:
-    """Builds an index mapping each k-gram in a list of tokens to all its starting positions.
+    """Build an index mapping each k-gram in a list of tokens to all its starting positions.
 
     This index is used in the fast Smith-Waterman variant to quickly find
     potential matching regions between two texts.
@@ -802,7 +803,7 @@ def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[i
 
 
 def smith_waterman_window(params: SmithWatermanParams) -> float:
-    """Performs the Smith-Waterman local alignment algorithm on specified windows of two token lists.
+    """Perform the Smith-Waterman local alignment algorithm on specified windows of two token lists.
 
     This function calculates the alignment scores within the given windows and returns
     the maximum score found in the H (scoring) matrix. This score represents the
@@ -865,7 +866,7 @@ def compute_plagiarism_score_fast(
     text2: str,
     config: SmithWatermanConfig,
 ) -> PlagiarismScore:
-    """Computes a plagiarism score using a k-gram indexed, windowed Smith-Waterman algorithm.
+    """Compute a plagiarism score using a k-gram indexed, windowed Smith-Waterman algorithm.
 
     This method speeds up alignment by first finding exact k-gram matches between
     the two texts. Smith-Waterman is then applied only to windows around these
@@ -960,7 +961,7 @@ def compute_plagiarism_score_fast(
 
 
 def calculate_overlap_coefficient(text1: str, text2: str) -> OverlapCoefficient:
-    """Calculates the overlap coefficient between two texts based on their token sets.
+    """Calculate the overlap coefficient between two texts based on their token sets.
 
     The overlap coefficient is defined as: |set1 intersect set2| / min(|set1|, |set2|).
     It measures the degree of overlap relative to the smaller set.
@@ -983,7 +984,7 @@ def calculate_overlap_coefficient(text1: str, text2: str) -> OverlapCoefficient:
 
 
 def calculate_sorensen_dice_coefficient(text1: str, text2: str) -> SorensenDiceCoefficient:
-    """Calculates the Sørensen-Dice coefficient (or Dice score) between two texts based on their token sets.
+    """Calculate the Sørensen-Dice coefficient (or Dice score) between two texts based on their token sets.
 
     The Sørensen-Dice coefficient is defined as: 2 * |set1 intersect set2| / (|set1| + |set2|).
     It measures the similarity between two sets, ranging from 0 (no overlap) to 1 (identical sets).
@@ -1011,7 +1012,7 @@ def calculate_sorensen_dice_coefficient(text1: str, text2: str) -> SorensenDiceC
 
 
 def get_char_by_char_equality_optimized(s1_in: Optional[str], s2_in: Optional[str]) -> CharEqualityScore:
-    """Compares two strings character by character, applying a geometrically decaying weight for matches.
+    """Compare two strings character by character, applying a geometrically decaying weight for matches.
 
     The score starts with a weight of 1.0 for the first character match. Each subsequent
     match contributes its current weight to the total score, and the weight for the
@@ -1044,7 +1045,7 @@ def get_char_by_char_equality_optimized(s1_in: Optional[str], s2_in: Optional[st
 
 
 def create_semantic_graph_spacy(text: str, spacy_nlp_model: Any) -> Optional[nx.Graph]:  # noqa: ANN401
-    """Creates a semantic graph from text using spaCy's dependency parse.
+    """Create a semantic graph from text using spaCy's dependency parse.
 
     Nodes in the graph represent tokens, identified by their index in the document.
     Node attributes include the token's text, lemma, and part-of-speech tag.
@@ -1082,7 +1083,7 @@ def calculate_semantic_graph_similarity_spacy(
     graph1: Optional[nx.Graph],
     graph2: Optional[nx.Graph],
 ) -> SemanticGraphSimilarity:
-    """Calculates similarity between two semantic graphs (from spaCy) based on Jaccard index of nodes and edges.
+    """Calculate similarity between two semantic graphs (from spaCy) based on Jaccard index of nodes and edges.
 
     This function assumes graphs are generated by `create_semantic_graph_spacy` or have a similar structure.
     The overall similarity is a simple average of the Jaccard similarity of their node sets
@@ -1139,7 +1140,7 @@ def calculate_semantic_graph_similarity_spacy(
 
 
 def preprocess_tfidf(text: str, *, lowercase: bool = True, remove_punct: bool = True) -> str:
-    """Prepares text for TF-IDF vectorization by lowercasing and removing punctuation.
+    """Prepare text for TF-IDF vectorization by lowercasing and removing punctuation.
 
     Args:
         text (str): The input text string.
@@ -1169,7 +1170,7 @@ def extract_lexical_features(
     distance_metric: str = "sqeuclidean",  # Default distance metric for pdist
     cluster_dist_thresh: float = 0.5,  # Default distance threshold for forming flat clusters
 ) -> LexicalFeaturesAnalysis:
-    """Extracts lexical and clustering-based features for student answers relative to model answers.
+    """Extract lexical and clustering-based features for student answers relative to model answers.
 
     This function performs several steps:
     1. Preprocesses all model and student answers.
@@ -1225,10 +1226,10 @@ def extract_lexical_features(
             return LexicalFeaturesAnalysis(student_features=[])  # Return empty features.
 
         tfidf_matrix = vectorizer.fit_transform(all_texts_processed).toarray()
-    except ValueError as e:  # Catch errors like "empty vocabulary" if all texts are stopwords or too short.
-        logger.exception(
-            f"TF-IDF Vectorization error in extract_lexical_features: {e}. "
-            "This can happen if texts are empty or contain only stopwords after preprocessing.",
+    except ValueError:  # Catch errors like "empty vocabulary" if all texts are stopwords or too short.
+        logger.exception( # TRY401 Fix
+            "TF-IDF Vectorization error in extract_lexical_features. "
+            "This can happen if texts are empty or contain only stopwords after preprocessing."
         )
         # Return empty features if TF-IDF fails critically.
         return LexicalFeaturesAnalysis(student_features=[])
@@ -1264,9 +1265,9 @@ def extract_lexical_features(
     try:
         # `linkage` performs hierarchical/agglomerative clustering.
         linkage_matrix = linkage(pairwise_dist_matrix_condensed, method=linkage_method)
-    except ValueError as e:  # `linkage` also needs more than 1 observation.
-        logger.exception(
-            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape}): {e}.",
+    except ValueError:  # `linkage` also needs more than 1 observation.
+        logger.exception( # TRY401 Fix
+            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape})."
         )
         error_feature = LexicalClusterFeature(
             coph_min=0.0,
@@ -1285,8 +1286,8 @@ def extract_lexical_features(
         _cophenetic_corr_coeff, cophenetic_distances_condensed = cophenet(
             linkage_matrix, pairwise_dist_matrix_condensed,
         )
-    except Exception as e:  # Catch any error during cophenet calculation
-        logger.exception(f"Cophenet calculation error: {e}. Using zero matrix for cophenetic distances.")
+    except Exception:  # Catch any error during cophenet calculation
+        logger.exception("Cophenet calculation error. Using zero matrix for cophenetic distances.") # TRY401 Fix
         cophenetic_distances_condensed = np.zeros_like(pairwise_dist_matrix_condensed)  # Fallback
 
     # Convert the condensed cophenetic distance matrix to its square form for easier indexing.

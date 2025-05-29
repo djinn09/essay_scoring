@@ -216,7 +216,7 @@ class KeywordMatcher:
     @staticmethod
     @lru_cache(maxsize=128)  # Cache results for previously seen token tuples.
     def _normalize_tokens(
-        tokens: tuple[str, ...], use_lemmatization: bool, lemmatizer: Optional[WordNetLemmatizer],
+        tokens: tuple[str, ...], *, use_lemmatization: bool, lemmatizer: Optional[WordNetLemmatizer],
     ) -> tuple[str, ...]:
         """Normalize a tuple of tokens, primarily by lemmatization if enabled and available.
 
@@ -323,7 +323,7 @@ class KeywordMatcher:
                         # Step 3 (for POS path): Normalize (lemmatize) the POS-filtered tokens.
                         keywords = set(
                             KeywordMatcher._normalize_tokens(
-                                tuple(pos_filtered_tokens), self.effective_use_lemmatization, _GLOBAL_LEMMATIZER,
+                                tuple(pos_filtered_tokens), use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
                             ),
                         )
                     else:
@@ -334,7 +334,7 @@ class KeywordMatcher:
             # Step 3 (for non-POS path): Directly normalize (lemmatize) the preprocessed tokens.
             keywords = set(
                 KeywordMatcher._normalize_tokens(
-                    processed_tokens_tuple, self.effective_use_lemmatization, _GLOBAL_LEMMATIZER,
+                    processed_tokens_tuple, use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
                 ),
             )
 
@@ -437,7 +437,7 @@ class KeywordMatcher:
         combined_vocabulary = set_a.union(set_b)
         if not combined_vocabulary:  # Should only happen if both set_a and set_b are empty.
             logger.debug(
-                "No combined vocabulary found for cosine similarity calculation (both texts likely empty after processing).",
+                "No combined vocabulary for cosine similarity (texts likely empty after processing).",
             )
             return 0.0  # Cosine is undefined or 0 for two empty sets.
 
@@ -459,7 +459,7 @@ class KeywordMatcher:
         keywords_a_set: set[str],  # Pre-extracted and normalized keywords from Paragraph A.
         paragraph_b: str,  # Raw text of Paragraph B.
     ) -> dict[str, Any]:
-        """Calculate keyword coverage components by checking how many keywords from Paragraph A are present in Paragraph B.
+        """Calculate keyword coverage by checking how many keywords from Paragraph A are in Paragraph B.
 
         Args:
             keywords_a_set (set[str]): A set of unique, normalized keywords extracted from Paragraph A.
@@ -482,7 +482,7 @@ class KeywordMatcher:
         # Normalize (lemmatize if enabled) tokens of Paragraph B to match normalization of keywords_a_set.
         normalized_tokens_b_set = set(
             KeywordMatcher._normalize_tokens(
-                tuple(processed_tokens_b_list), self.effective_use_lemmatization, _GLOBAL_LEMMATIZER,
+                tuple(processed_tokens_b_list), use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
             ),
         )
 

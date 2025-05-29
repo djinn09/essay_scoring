@@ -64,9 +64,10 @@ from typing import TYPE_CHECKING, Any, Optional  # Import necessary types for an
 
 import gender_guesser.detector as gender
 import spacy
+from spacy.tokens import Doc
 
 if TYPE_CHECKING:
-    from spacy.tokens import Doc, Token
+    from spacy.tokens import Token
 
 # --- Constants ---
 PROXIMITY_THRESHOLD = 0.05  # Used for candidate scoring
@@ -295,9 +296,10 @@ def check_agreement(pronoun: Token, candidate: Token) -> tuple[bool, bool]:
     # Case 2: Pronoun is Gendered ('he', 'she') or Plural ('they')
     # Allow 'Unspecified' candidates to match with specific genders,
     # but disallow direct clashes (Masc vs Fem).
-    if cand_gender != "Unspecified" and pron_gender != "Unspecified":  # Both have specified genders
-        if (pron_gender == "Masc" and cand_gender == "Fem") or (pron_gender == "Fem" and cand_gender == "Masc"):
-            return False, False  # Direct gender clash
+    if cand_gender != "Unspecified" and pron_gender != "Unspecified" and \
+       ((pron_gender == "Masc" and cand_gender == "Fem") or \
+        (pron_gender == "Fem" and cand_gender == "Masc")):
+        return False, False  # Direct gender clash
 
     # If no explicit clash, or if one is Unspecified, allow match.
     # - 'he'/'she' can match Masc/Fem respectively, or Unspecified candidate.
@@ -413,16 +415,15 @@ def is_pleonastic_it(token: Token) -> bool:
 
     verb = token.head  # The verb governed by 'it'.
     pleonastic = False
-    if verb.pos_ == "VERB":
-        if _check_weather_verbs(verb) or \
-           _check_time_attributes(verb) or \
-           _check_clausal_complements(verb):
-            pleonastic = True
+    if verb.pos_ == "VERB" and \
+       (_check_weather_verbs(verb) or \
+        _check_time_attributes(verb) or \
+        _check_clausal_complements(verb)):
+        pleonastic = True
     # Rule 5: Auxiliary 'be' + time/numeric attribute or cleft constructions
-    elif verb.lemma_ == "be" and verb.pos_ == "AUX":  # If 'it' is subject of an auxiliary 'be'.
-        if _check_time_attributes(verb) or \
-           _check_cleft_construction(verb): # Re-use time attribute check
-            pleonastic = True
+    elif verb.lemma_ == "be" and verb.pos_ == "AUX" and \
+         (_check_time_attributes(verb) or _check_cleft_construction(verb)): # Re-use time attribute check
+        pleonastic = True
 
     return pleonastic
 
@@ -579,7 +580,7 @@ def rule_based_coref_resolution_v4(
     return coref_pairs_with_indices
 
 
-def _resolve_pronoun(
+def _resolve_pronoun( # pylint: disable=too-many-arguments
     token: Token,
     doc: Doc,
     *,
@@ -869,7 +870,7 @@ if __name__ == "__main__":
                     mention_span, antecedent_span, conf, rule = pair
                     print(
                         f"  - Mention: '{mention_span['text']}' ({mention_span['start']}:{mention_span['end']}) -> "
-                        f"Antecedent: '{antecedent_span['text']}' ({antecedent_span['start']}:{antecedent_span['end']}) "
+                        f"Ante: '{antecedent_span['text']}' ({antecedent_span['start']}:{antecedent_span['end']}) " # Shortened "Antecedent"
                         f"(Conf: {conf:.2f}, Rule: {rule})",
                     )
             else:
