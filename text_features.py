@@ -1539,7 +1539,7 @@ def run_full_text_analysis(
         # semantic_graph_sims_to_models: list[float] = [] # If spaCy features were active
 
         # Compare the current student's text against every model answer.
-        for model_idx, model_text_item in enumerate(inputs.model_answers):
+        for _, model_text_item in enumerate(inputs.model_answers):
             # Prepare input for single pair analysis.
             single_pair_input_params = SinglePairAnalysisInput(
                 model_answer=model_text_item,

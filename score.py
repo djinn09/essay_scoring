@@ -102,7 +102,7 @@ def score_essay(essay: str, reference: str) -> EssayScores:
 
     # Step 8: Assemble all scores into the EssayScores Pydantic model.
     # This ensures a structured output.
-    essay_scores_result = EssayScores(
+    return EssayScores(
         semantic_score=main_semantic_score,  # The primary semantic similarity score
         similarity_metrics=all_similarity_metrics,  # Collection of various other similarity scores
         text_score=detailed_text_analysis_results,  # Results from text_features analysis
@@ -112,4 +112,3 @@ def score_essay(essay: str, reference: str) -> EssayScores:
 
     # Placeholder for final aggregation or further processing if needed.
     # For now, just returning the comprehensive scores as is.
-    return essay_scores_result

@@ -28,12 +28,14 @@ StoG (Stack-Transformer) model from `amrlib`.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import amrlib
 import penman  # Required for graph manipulation
 from amrlib.evaluate.smatch_enhanced import compute_smatch  # Enhanced for more detailed Smatch scores
-from amrlib.models.StoG import StoG  # Import StoG for type hinting
+
+if TYPE_CHECKING:
+    from amrlib.models.StoG import StoG
 
 # --- Rich Logging (Optional) ---
 try:
