@@ -42,9 +42,9 @@ def score_essay(essay: str, reference: str) -> EssayScores:
     # This uses a pre-loaded SentenceTransformer model (`semantic_model` from settings.py)
     # and configuration from the global `settings` object.
     sentence_semantic_model = SemanticCosineSimilarity(
-        model=semantic_model, # Pre-loaded SentenceTransformer model
+        model=semantic_model,  # Pre-loaded SentenceTransformer model
         chunk_size=settings.semantic.chunk_size,
-        overlap=settings.semantic.overlap, # Added overlap based on SemanticCosineSimilarity's __init__
+        overlap=settings.semantic.overlap,  # Added overlap based on SemanticCosineSimilarity's __init__
         batch_size=settings.semantic.batch_size,
         # device is typically handled by SentenceTransformer itself based on model loading,
         # but if SemanticCosineSimilarity takes it, it would be: device=settings.semantic.device
@@ -54,7 +54,7 @@ def score_essay(essay: str, reference: str) -> EssayScores:
     # This calculator computes a wide range of classical similarity metrics.
     # It uses a pre-defined `similarity_config` from settings.py.
     general_similarity_calculator = SimilarityCalculator(
-        config=similarity_config, # Configuration for various preprocessing options
+        config=similarity_config,  # Configuration for various preprocessing options
     )
 
     # Step 3: Calculate Semantic Similarity Score (e.g., Cosine)
@@ -62,7 +62,7 @@ def score_essay(essay: str, reference: str) -> EssayScores:
     semantic_similarity_result = sentence_semantic_model.calculate_similarity(
         essay,
         reference,
-        metrics_to_calculate=["cosine"], # Specify only cosine for the main semantic_score
+        metrics_to_calculate=["cosine"],  # Specify only cosine for the main semantic_score
     )
     # Extract the cosine score if the calculation was successful.
     main_semantic_score: float | None = None
@@ -72,7 +72,6 @@ def score_essay(essay: str, reference: str) -> EssayScores:
         # Log if primary semantic score calculation failed.
         # In a real app, you might want more robust error handling or default values.
         print(f"Warning: Semantic cosine similarity calculation failed for essay: {essay[:50]}...")
-
 
     # Step 4: Perform Detailed Text Feature Analysis (from text_features.py)
     # This includes plagiarism checks, graph-based similarity, etc.
@@ -89,8 +88,8 @@ def score_essay(essay: str, reference: str) -> EssayScores:
     keyword_matcher_config = KeywordMatcherConfig(use_pos_tagging=True)
     keyword_matcher_instance = KeywordMatcher(config=keyword_matcher_config)
     keyword_matching_scores = keyword_matcher_instance.find_matches_and_score(
-        paragraph_a=reference, # Keywords extracted from reference
-        paragraph_b=essay,     # Found in essay
+        paragraph_a=reference,  # Keywords extracted from reference
+        paragraph_b=essay,  # Found in essay
     )
 
     # Step 6: Calculate Part-of-Speech (POS) Based Score
@@ -103,12 +102,14 @@ def score_essay(essay: str, reference: str) -> EssayScores:
 
     # Step 8: Assemble all scores into the EssayScores Pydantic model.
     # This ensures a structured output.
-    final_scores = EssayScores(
-        semantic_score=main_semantic_score, # The primary semantic similarity score
-        similarity_metrics=all_similarity_metrics, # Collection of various other similarity scores
-        text_score=detailed_text_analysis_results, # Results from text_features analysis
-        keyword_matcher=keyword_matching_scores.keywords_matcher_result, # Scores from KeywordMatcher
-        pos_score=essay_pos_similarity_score, # Score from POS pattern matching
+    essay_scores_result = EssayScores(
+        semantic_score=main_semantic_score,  # The primary semantic similarity score
+        similarity_metrics=all_similarity_metrics,  # Collection of various other similarity scores
+        text_score=detailed_text_analysis_results,  # Results from text_features analysis
+        keyword_matcher=keyword_matching_scores.keywords_matcher_result,  # Scores from KeywordMatcher
+        pos_score=essay_pos_similarity_score,  # Score from POS pattern matching
     )
 
-    return final_scores
+    # Placeholder for final aggregation or further processing if needed.
+    # For now, just returning the comprehensive scores as is.
+    return essay_scores_result

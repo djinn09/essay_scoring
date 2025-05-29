@@ -57,6 +57,7 @@ Dependencies:
 The module is designed to be relatively modular, allowing individual feature
 extraction functions to be used independently or as part of the larger analysis pipelines.
 """
+
 # Use annotations for cleaner type hinting (requires Python 3.7+)
 from __future__ import annotations
 
@@ -164,7 +165,9 @@ class SmithWatermanParams(BaseModel):
             "Example: sm['word1']['word2'] gives the score for aligning 'word1' with 'word2'."
         ),
     )
-    gap_penalty: float = Field(..., description="Penalty for introducing a gap in the alignment (should be negative or zero).")
+    gap_penalty: float = Field(
+        ..., description="Penalty for introducing a gap in the alignment (should be negative or zero).",
+    )
     win1: tuple[int, int] = Field(
         ...,
         description="Tuple representing the (start_index, end_index) of the window in the first text (t1).",
@@ -562,9 +565,9 @@ def create_word_vectors(texts: list[str]) -> WordVectorCreationResult:
         # Get the list of unique words (vocabulary) learned by the vectorizer.
         words: list[str] = vectorizer.get_feature_names_out().tolist()
         return WordVectorCreationResult(word_matrix_csr_scipy=word_matrix, words_vocabulary=words)
-    except Exception as e: # Catching generic Exception, consider more specific ones if known.
+    except Exception as e:  # Catching generic Exception, consider more specific ones if known.
         logger.exception(f"Error in create_word_vectors during vectorization: {e}")
-        return WordVectorCreationResult() # Return empty result on error.
+        return WordVectorCreationResult()  # Return empty result on error.
 
 
 def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.Graph:
@@ -612,7 +615,7 @@ def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.
             len(words),
         )
         # Fallback: return an empty graph or raise the error. Here, returning empty graph.
-        return nx.Graph() # Or `raise` if this should be a fatal error.
+        return nx.Graph()  # Or `raise` if this should be a fatal error.
 
     if word_vectors.shape[0] == 0:  # Should correspond to len(words) == 0, already checked.
         logger.warning("Word vectors are empty (no words in vocabulary). Returning empty graph.")
@@ -626,7 +629,7 @@ def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.
     graph_build_start = time.time()
     num_words = len(words)
     graph = nx.Graph()
-    graph.add_nodes_from(words) # Add all words from the vocabulary as nodes.
+    graph.add_nodes_from(words)  # Add all words from the vocabulary as nodes.
 
     similarity_threshold = 0.01  # Minimum similarity for an edge to be created.
     edges_added_count = 0
@@ -634,7 +637,7 @@ def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.
     # Iterate through the upper triangle of the similarity matrix to avoid duplicate edges
     # and self-loops (i != j).
     for i in range(num_words):
-        for j in range(i + 1, num_words): # j starts from i + 1
+        for j in range(i + 1, num_words):  # j starts from i + 1
             similarity = similarity_matrix[i, j]
             if similarity > similarity_threshold:
                 # Add an edge between words[i] and words[j] with weight as their similarity.
@@ -675,7 +678,11 @@ def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> Graph
     common_words_in_graph = list(words1.intersection(words2).intersection(graph.nodes))
 
     if not common_words_in_graph:
-        logger.debug("No common words found in the graph for the given texts (text1: '%s...', text2: '%s...').", text1[:30], text2[:30])
+        logger.debug(
+            "No common words found in the graph for the given texts (text1: '%s...', text2: '%s...').",
+            text1[:30],
+            text2[:30],
+        )
         return GraphSimilarityOutput(
             similarity_score=0.0,
             subgraph_nodes=0,
@@ -689,8 +696,8 @@ def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> Graph
     sub_edges = subgraph.number_of_edges()
 
     graph_sim_score = 0.0
-    sub_density_val: Optional[float] = None # Explicitly Optional float
-    message: Optional[str] = None # Explicitly Optional str
+    sub_density_val: Optional[float] = None  # Explicitly Optional float
+    message: Optional[str] = None  # Explicitly Optional str
 
     # Density is typically meaningful for graphs with at least 2 nodes.
     # nx.density() handles graphs with 0 or 1 node (returns 0 or NaN).
@@ -705,17 +712,21 @@ def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> Graph
             # nx.density can return NaN for graphs with nodes but no possible edges (e.g., isolated nodes if N < 2, caught above)
             # or if the graph is degenerate in some way for the formula.
             if np.isnan(current_density):
-                logger.debug("Subgraph density calculated as NaN (likely isolated nodes or specific graph structure), treating as 0.")
+                logger.debug(
+                    "Subgraph density calculated as NaN (likely isolated nodes or specific graph structure), treating as 0.",
+                )
                 sub_density_val = 0.0
             else:
-                sub_density_val = float(current_density) # Ensure it's a float
+                sub_density_val = float(current_density)  # Ensure it's a float
             graph_sim_score = sub_density_val  # Use density as the similarity score.
             message = f"Subgraph successfully created: {sub_nodes} nodes, {sub_edges} edges."
-        except ZeroDivisionError: # Should be caught by sub_nodes < 2, but as a safeguard.
+        except ZeroDivisionError:  # Should be caught by sub_nodes < 2, but as a safeguard.
             message = "Density calculation failed due to ZeroDivisionError (unexpected for N >= 2)."
-            sub_density_val = 0.0 # graph_sim_score remains 0.0
+            sub_density_val = 0.0  # graph_sim_score remains 0.0
 
-    logger.debug(f"Graph similarity for texts ('{text1[:30]}...', '{text2[:30]}...'): score={graph_sim_score:.4f}, {message}")
+    logger.debug(
+        f"Graph similarity for texts ('{text1[:30]}...', '{text2[:30]}...'): score={graph_sim_score:.4f}, {message}",
+    )
     return GraphSimilarityOutput(
         similarity_score=graph_sim_score,
         subgraph_nodes=sub_nodes,
@@ -774,14 +785,16 @@ def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[i
     index: dict[tuple[str, ...], list[int]] = defaultdict(list)
     # Validate inputs: k must be positive, tokens list must not be empty and must be at least k tokens long.
     if k <= 0 or not tokens or len(tokens) < k:
-        logger.debug("Invalid input for build_ngram_index (k=%s, len(tokens)=%s). Returning empty index.", k, len(tokens))
-        return dict(index) # Return as a plain dict
+        logger.debug(
+            "Invalid input for build_ngram_index (k=%s, len(tokens)=%s). Returning empty index.", k, len(tokens),
+        )
+        return dict(index)  # Return as a plain dict
 
     # Slide a window of size k across the tokens.
     for i in range(len(tokens) - k + 1):
-        kgram = tuple(tokens[i : i + k]) # Create a tuple for the k-gram (tuples are hashable for dict keys).
-        index[kgram].append(i) # Store the starting position of this k-gram.
-    return dict(index) # Convert defaultdict to dict for the final output.
+        kgram = tuple(tokens[i : i + k])  # Create a tuple for the k-gram (tuples are hashable for dict keys).
+        index[kgram].append(i)  # Store the starting position of this k-gram.
+    return dict(index)  # Convert defaultdict to dict for the final output.
 
 
 def smith_waterman_window(params: SmithWatermanParams) -> float:
@@ -826,7 +839,6 @@ def smith_waterman_window(params: SmithWatermanParams) -> float:
             # Default to a mismatch_score (e.g., -1.0 or as defined in `sm`) if a word pair is not explicitly in `sm`.
             # This shouldn't happen if `sm` is built correctly from all unique words in t1 and t2.
             match_val = sm.get(a1[i - 1], {}).get(a2[j - 1], config.mismatch_score if "config" in globals() else -1.0)
-
 
             # Calculate scores from three possible previous cells:
             # 1. Diagonal: Alignment of a1[i-1] and a2[j-1]
@@ -889,7 +901,7 @@ def compute_plagiarism_score_fast(
     # Build a k-gram index on one of the texts (e.g., text2, assuming it might be longer or the source).
     # This index maps k-grams to their starting positions in t2_tokens.
     index_t2 = build_ngram_index(t2_tokens, config.k)
-    if not index_t2: # If index is empty (e.g. t2_tokens shorter than k)
+    if not index_t2:  # If index is empty (e.g. t2_tokens shorter than k)
         logger.debug("K-gram index for text2 is empty. Plagiarism score is 0.")
         return PlagiarismScore(overlap_percentage=0.0)
 
@@ -927,8 +939,10 @@ def compute_plagiarism_score_fast(
     # Normalize the highest Smith-Waterman score.
     # A common normalization is by the length of the shorter text (in tokens),
     # assuming match_score is 1. This gives a sense of overlap percentage.
-    denominator = min(len(t1_tokens), len(t2_tokens)) * config.match_score # Max possible score for shorter text if perfect match
-    if denominator == 0 : # Avoid division by zero if match_score is 0 or texts were empty
+    denominator = (
+        min(len(t1_tokens), len(t2_tokens)) * config.match_score
+    )  # Max possible score for shorter text if perfect match
+    if denominator == 0:  # Avoid division by zero if match_score is 0 or texts were empty
         normalized_score = 0.0
     else:
         normalized_score = max_overall_sw_score / denominator
@@ -1012,12 +1026,12 @@ def get_char_by_char_equality_optimized(s1_in: Optional[str], s2_in: Optional[st
         return CharEqualityScore(score=0.0)
 
     s1, s2 = str(s1_in), str(s2_in)  # Ensure inputs are strings.
-    min_len = min(len(s1), len(s2)) # Compare up to the length of the shorter string.
+    min_len = min(len(s1), len(s2))  # Compare up to the length of the shorter string.
     total_score = 0.0
-    current_weight = 1.0 # Initial weight for a match at the first position.
+    current_weight = 1.0  # Initial weight for a match at the first position.
 
     for i in range(min_len):
-        if s1[i] == s2[i]: # If characters at the current position match.
+        if s1[i] == s2[i]:  # If characters at the current position match.
             total_score += current_weight
         current_weight *= 0.5  # Geometric decay for the weight at the next position.
 
@@ -1041,7 +1055,7 @@ def create_semantic_graph_spacy(text: str, spacy_nlp_model: Any) -> Optional[nx.
                             or None if the spaCy model is not available/loaded.
 
     """
-    if spacy_nlp_model is None: # Guard against uninitialized spaCy model
+    if spacy_nlp_model is None:  # Guard against uninitialized spaCy model
         logger.warning("spaCy model (spacy_nlp_model) not loaded. Cannot create semantic graph.")
         return None
     # Process the text with the spaCy model to get a Doc object.
@@ -1055,7 +1069,7 @@ def create_semantic_graph_spacy(text: str, spacy_nlp_model: Any) -> Optional[nx.
         # Add edges for syntactic dependencies.
         # An edge connects the current token (head) to its children in the dependency tree.
         for child in token.children:
-            graph.add_edge(token.i, child.i, label=child.dep_) # Edge label is the dependency type.
+            graph.add_edge(token.i, child.i, label=child.dep_)  # Edge label is the dependency type.
     return graph
 
 
@@ -1111,8 +1125,8 @@ def calculate_semantic_graph_similarity_spacy(
 
     return SemanticGraphSimilarity(
         similarity=overall_similarity,
-        nodes_jaccard=nodes_jaccard, # Jaccard index of graph nodes
-        edges_jaccard=edges_jaccard, # Jaccard index of graph edges
+        nodes_jaccard=nodes_jaccard,  # Jaccard index of graph nodes
+        edges_jaccard=edges_jaccard,  # Jaccard index of graph edges
     )
 
 
@@ -1131,7 +1145,7 @@ def preprocess_tfidf(text: str, *, lowercase: bool = True, remove_punct: bool = 
         str: The processed text string. Returns an empty string if input is not a string.
 
     """
-    if not isinstance(text, str): # Basic type check
+    if not isinstance(text, str):  # Basic type check
         logger.warning("preprocess_tfidf received non-string input: %s. Returning empty string.", type(text))
         return ""
     processed_text = text
@@ -1140,15 +1154,15 @@ def preprocess_tfidf(text: str, *, lowercase: bool = True, remove_punct: bool = 
     if remove_punct:
         # Replace punctuation with a space to ensure words separated by punctuation are treated as distinct.
         processed_text = re.sub(r"[^\w\s]", " ", processed_text)
-    return processed_text.strip() # Remove any leading/trailing whitespace that might have been introduced.
+    return processed_text.strip()  # Remove any leading/trailing whitespace that might have been introduced.
 
 
 def extract_lexical_features(
     model_answers: list[str],
     student_answers: list[str],
-    linkage_method: str = "average", # Default linkage method for hierarchical clustering
-    distance_metric: str = "sqeuclidean", # Default distance metric for pdist
-    cluster_dist_thresh: float = 0.5, # Default distance threshold for forming flat clusters
+    linkage_method: str = "average",  # Default linkage method for hierarchical clustering
+    distance_metric: str = "sqeuclidean",  # Default distance metric for pdist
+    cluster_dist_thresh: float = 0.5,  # Default distance threshold for forming flat clusters
 ) -> LexicalFeaturesAnalysis:
     """Extracts lexical and clustering-based features for student answers relative to model answers.
 
@@ -1184,7 +1198,9 @@ def extract_lexical_features(
 
     """
     if not model_answers or not student_answers:
-        logger.warning("extract_lexical_features: model_answers or student_answers list is empty. Returning empty features.")
+        logger.warning(
+            "extract_lexical_features: model_answers or student_answers list is empty. Returning empty features.",
+        )
         return LexicalFeaturesAnalysis(student_features=[])
 
     # Preprocess all texts (model answers + student answers) for TF-IDF
@@ -1194,15 +1210,17 @@ def extract_lexical_features(
 
     # TF-IDF Vectorization: Convert texts into numerical feature vectors.
     vectorizer = TfidfVectorizer()
-    tfidf_matrix: np.ndarray # Will hold the dense TF-IDF matrix.
+    tfidf_matrix: np.ndarray  # Will hold the dense TF-IDF matrix.
     try:
         # Check if all texts are empty after preprocessing, which would cause vectorizer to fail.
-        if not any(all_texts_processed): # `any` checks if at least one string is non-empty.
-            logger.warning("All texts are empty after preprocessing in extract_lexical_features. Cannot compute TF-IDF.")
-            return LexicalFeaturesAnalysis(student_features=[]) # Return empty features.
+        if not any(all_texts_processed):  # `any` checks if at least one string is non-empty.
+            logger.warning(
+                "All texts are empty after preprocessing in extract_lexical_features. Cannot compute TF-IDF.",
+            )
+            return LexicalFeaturesAnalysis(student_features=[])  # Return empty features.
 
         tfidf_matrix = vectorizer.fit_transform(all_texts_processed).toarray()
-    except ValueError as e: # Catch errors like "empty vocabulary" if all texts are stopwords or too short.
+    except ValueError as e:  # Catch errors like "empty vocabulary" if all texts are stopwords or too short.
         logger.exception(
             f"TF-IDF Vectorization error in extract_lexical_features: {e}. "
             "This can happen if texts are empty or contain only stopwords after preprocessing.",
@@ -1213,22 +1231,27 @@ def extract_lexical_features(
     # Calculate pairwise distances between all TF-IDF vectors.
     # `pdist` requires at least 2 samples if input is 1D, or at least 2 features if NxD (N>1).
     min_samples_for_pdist = 2
-    if tfidf_matrix.shape[0] < min_samples_for_pdist or tfidf_matrix.shape[1] == 0: # Not enough texts or no features.
+    if tfidf_matrix.shape[0] < min_samples_for_pdist or tfidf_matrix.shape[1] == 0:  # Not enough texts or no features.
         logger.warning(
             f"Not enough samples ({tfidf_matrix.shape[0]}) or features ({tfidf_matrix.shape[1]}) "
             "for pdist. Cannot proceed with clustering-based lexical features.",
         )
         # Create default 'error' features for each student answer.
         error_feature = LexicalClusterFeature(
-            coph_min=0.0, coph_mean=0.0, coph_max=0.0,
-            cluster_label=-1, cluster_size=0, is_outlier=1, silhouette=0.0, # Using -1 for undefined cluster
+            coph_min=0.0,
+            coph_mean=0.0,
+            coph_max=0.0,
+            cluster_label=-1,
+            cluster_size=0,
+            is_outlier=1,
+            silhouette=0.0,  # Using -1 for undefined cluster
         )
         return LexicalFeaturesAnalysis(student_features=[error_feature for _ in student_answers])
 
     # `pdist` returns a condensed distance matrix (1D array).
     pairwise_dist_matrix_condensed: np.ndarray = pdist(
         tfidf_matrix,
-        metric=distance_metric, # type: ignore[arg-type] # Pylance can have issues with scipy/sklearn type stubs.
+        metric=distance_metric,  # type: ignore[arg-type] # Pylance can have issues with scipy/sklearn type stubs.
     )
 
     # Hierarchical Clustering: Group texts based on their pairwise distances.
@@ -1236,23 +1259,30 @@ def extract_lexical_features(
     try:
         # `linkage` performs hierarchical/agglomerative clustering.
         linkage_matrix = linkage(pairwise_dist_matrix_condensed, method=linkage_method)
-    except ValueError as e: # `linkage` also needs more than 1 observation.
+    except ValueError as e:  # `linkage` also needs more than 1 observation.
         logger.exception(
             f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape}): {e}.",
         )
         error_feature = LexicalClusterFeature(
-            coph_min=0.0, coph_mean=0.0, coph_max=0.0,
-            cluster_label=-1, cluster_size=0, is_outlier=1, silhouette=0.0,
+            coph_min=0.0,
+            coph_mean=0.0,
+            coph_max=0.0,
+            cluster_label=-1,
+            cluster_size=0,
+            is_outlier=1,
+            silhouette=0.0,
         )
         return LexicalFeaturesAnalysis(student_features=[error_feature for _ in student_answers])
 
     # Cophenetic Correlation Coefficient: Measures how well the clustering preserves original pairwise distances.
     # `cophenet` returns the cophenetic correlation coefficient itself and the cophenetic distance matrix (condensed).
     try:
-        _cophenetic_corr_coeff, cophenetic_distances_condensed = cophenet(linkage_matrix, pairwise_dist_matrix_condensed)
-    except Exception as e: # Catch any error during cophenet calculation
+        _cophenetic_corr_coeff, cophenetic_distances_condensed = cophenet(
+            linkage_matrix, pairwise_dist_matrix_condensed,
+        )
+    except Exception as e:  # Catch any error during cophenet calculation
         logger.exception(f"Cophenet calculation error: {e}. Using zero matrix for cophenetic distances.")
-        cophenetic_distances_condensed = np.zeros_like(pairwise_dist_matrix_condensed) # Fallback
+        cophenetic_distances_condensed = np.zeros_like(pairwise_dist_matrix_condensed)  # Fallback
 
     # Convert the condensed cophenetic distance matrix to its square form for easier indexing.
     cophenetic_dist_matrix_square: np.ndarray = squareform(cophenetic_distances_condensed)
@@ -1266,12 +1296,12 @@ def extract_lexical_features(
     # `silhouette_samples` requires 1 < n_labels < n_samples (number of unique cluster labels).
     if num_unique_labels > 1 and num_unique_labels < num_total_texts:
         silhouette_vals = silhouette_samples(tfidf_matrix, cluster_labels, metric=distance_metric)
-    else: # If all samples are in one cluster or each sample is its own cluster.
+    else:  # If all samples are in one cluster or each sample is its own cluster.
         logger.debug(
             f"Cannot compute meaningful silhouette scores (num_unique_labels={num_unique_labels}, "
             f"num_total_texts={num_total_texts}). Setting silhouette scores to 0.",
         )
-        silhouette_vals = np.zeros(num_total_texts) # Assign 0 if silhouette cannot be computed.
+        silhouette_vals = np.zeros(num_total_texts)  # Assign 0 if silhouette cannot be computed.
 
     student_feature_list: list[LexicalClusterFeature] = []
     for idx, _ in enumerate(student_answers):
@@ -1281,7 +1311,7 @@ def extract_lexical_features(
         # These are rows/columns 0 to num_models-1 in `cophenetic_dist_matrix_square`.
         student_coph_to_models: np.ndarray = cophenetic_dist_matrix_square[student_global_idx, :num_models]
 
-        student_cluster_label_val: int = cluster_labels[student_global_idx].item() # Get scalar value.
+        student_cluster_label_val: int = cluster_labels[student_global_idx].item()  # Get scalar value.
         # Count how many texts belong to the same cluster as the current student.
         student_cluster_size_val: int = int((cluster_labels == student_cluster_label_val).sum())
 
@@ -1291,8 +1321,8 @@ def extract_lexical_features(
             coph_max=float(student_coph_to_models.max()) if student_coph_to_models.size > 0 else 0.0,
             cluster_label=student_cluster_label_val,
             cluster_size=student_cluster_size_val,
-            is_outlier=int(student_cluster_size_val == 1), # An outlier if its cluster size is 1.
-            silhouette=float(silhouette_vals[student_global_idx].item()), # Get scalar value.
+            is_outlier=int(student_cluster_size_val == 1),  # An outlier if its cluster size is 1.
+            silhouette=float(silhouette_vals[student_global_idx].item()),  # Get scalar value.
         )
         student_feature_list.append(features_for_student)
 
@@ -1307,7 +1337,7 @@ def extract_lexical_features(
 # For now, keeping it as is from original, but noting its odd placement.
 import nltk
 
-nltk.download("wordnet", quiet=True) # Added quiet=True to suppress console output during tests/runs
+nltk.download("wordnet", quiet=True)  # Added quiet=True to suppress console output during tests/runs
 nltk.download("omw-1.4", quiet=True)
 
 # These lines will execute when the module is imported, which might not be intended.
@@ -1319,7 +1349,7 @@ nltk.download("omw-1.4", quiet=True)
 
 def run_single_pair_text_analysis(
     inputs: SinglePairAnalysisInput,
-    existing_graph: Optional[nx.Graph] = None, # Allow passing a pre-built corpus graph
+    existing_graph: Optional[nx.Graph] = None,  # Allow passing a pre-built corpus graph
 ) -> SinglePairAnalysisResult:
     """Analyzes a single model answer against a single student answer for various similarity metrics.
 
@@ -1348,11 +1378,11 @@ def run_single_pair_text_analysis(
         f"Starting single pair analysis for student text (first 30 chars): '{inputs.student_text[:30]}...' "
         f"and model answer (first 30 chars): '{inputs.model_answer[:30]}...'",
     )
-    results = SinglePairAnalysisResult() # Initialize an empty result object.
+    results = SinglePairAnalysisResult()  # Initialize an empty result object.
 
     # --- Graph Similarity ---
     graph_to_use: Optional[nx.Graph] = existing_graph
-    if graph_to_use is None: # If no corpus graph is provided, try to build one for this pair.
+    if graph_to_use is None:  # If no corpus graph is provided, try to build one for this pair.
         logger.debug("No existing graph provided for single pair analysis; attempting to build a local one.")
         # Create word vectors and graph just for this pair.
         pair_word_vecs = create_word_vectors([inputs.model_answer, inputs.student_text])
@@ -1364,13 +1394,15 @@ def run_single_pair_text_analysis(
     if graph_to_use and graph_to_use.number_of_nodes() > 0:
         results.graph_similarity = calculate_graph_similarity(
             graph_to_use,
-            inputs.student_text, # Student text for comparison
-            inputs.model_answer, # Model answer for comparison
+            inputs.student_text,  # Student text for comparison
+            inputs.model_answer,  # Model answer for comparison
         )
     else:
         logger.info("Graph for single pair analysis is empty or could not be built; skipping graph similarity.")
-        results.graph_similarity = GraphSimilarityOutput( # Populate with default "not applicable" values.
-            similarity_score=0.0, subgraph_nodes=0, subgraph_edges=0,
+        results.graph_similarity = GraphSimilarityOutput(  # Populate with default "not applicable" values.
+            similarity_score=0.0,
+            subgraph_nodes=0,
+            subgraph_edges=0,
             message="Graph not available or empty for this pair.",
         )
 
@@ -1383,8 +1415,8 @@ def run_single_pair_text_analysis(
         # unless inputs.SinglePairAnalysisInput is extended to include them.
     )
     results.plagiarism_score = compute_plagiarism_score_fast(
-        inputs.student_text, # Text 1 for plagiarism check
-        inputs.model_answer, # Text 2 for plagiarism check
+        inputs.student_text,  # Text 1 for plagiarism check
+        inputs.model_answer,  # Text 2 for plagiarism check
         config=sw_config,
     )
 
@@ -1435,8 +1467,11 @@ def run_full_text_analysis(
             - Optional[nx.Graph]: The generated corpus graph if successfully built, otherwise None.
 
     """
-    logger.info("Starting full text analysis pipeline for %d student texts and %d model answers.",
-                len(inputs.student_texts), len(inputs.model_answers))
+    logger.info(
+        "Starting full text analysis pipeline for %d student texts and %d model answers.",
+        len(inputs.student_texts),
+        len(inputs.model_answers),
+    )
     results = FullTextAnalysisResult()  # Initialize an empty result object.
     corpus_graph: Optional[nx.Graph] = None  # To store the graph built from all texts.
 
@@ -1457,11 +1492,14 @@ def run_full_text_analysis(
                 # Density is defined for N > 1. nx.density handles N <= 1 returning 0 or NaN.
                 density=nx.density(corpus_graph) if corpus_graph.number_of_nodes() > 1 else 0.0,
             )
-            logger.info("Corpus graph built successfully: %d nodes, %d edges.",
-                        results.corpus_graph_metrics.nodes, results.corpus_graph_metrics.edges)
+            logger.info(
+                "Corpus graph built successfully: %d nodes, %d edges.",
+                results.corpus_graph_metrics.nodes,
+                results.corpus_graph_metrics.edges,
+            )
         else:
             logger.warning("Corpus graph construction resulted in an empty or invalid graph.")
-            corpus_graph = None # Ensure it's None if not properly built.
+            corpus_graph = None  # Ensure it's None if not properly built.
     else:
         logger.warning("Corpus graph could not be built: word vector creation failed or yielded empty results.")
 
@@ -1477,13 +1515,16 @@ def run_full_text_analysis(
             cluster_dist_thresh=inputs.lexical_cluster_dist_thresh,
         )
         results.student_lexical_features = lexical_features_result
-        logger.info("Lexical features extracted for %d students.", len(lexical_features_result.student_features) if lexical_features_result else 0)
-    except Exception as e: # Catch broad exception to ensure pipeline continues if this step fails.
+        logger.info(
+            "Lexical features extracted for %d students.",
+            len(lexical_features_result.student_features) if lexical_features_result else 0,
+        )
+    except Exception as e:  # Catch broad exception to ensure pipeline continues if this step fails.
         logger.exception(f"Error extracting lexical features: {e}")
-        results.student_lexical_features = None # Or LexicalFeaturesAnalysis(student_features=[])
+        results.student_lexical_features = None  # Or LexicalFeaturesAnalysis(student_features=[])
 
     # --- Step 3: Per-student analysis (similarity of each student to all model answers) ---
-    per_student_results_list: list[dict[str, Any]] = [] # To store results for each student.
+    per_student_results_list: list[dict[str, Any]] = []  # To store results for each student.
     logger.info("Starting per-student analysis against model answers...")
 
     for student_idx, student_text_item in enumerate(inputs.student_texts):
@@ -1503,8 +1544,8 @@ def run_full_text_analysis(
             single_pair_input_params = SinglePairAnalysisInput(
                 model_answer=model_text_item,
                 student_text=student_text_item,
-                plagiarism_k=inputs.plagiarism_k, # Use k from overall config
-                plagiarism_window_radius=inputs.plagiarism_window_radius, # Use radius from overall config
+                plagiarism_k=inputs.plagiarism_k,  # Use k from overall config
+                plagiarism_window_radius=inputs.plagiarism_window_radius,  # Use radius from overall config
             )
             # Perform analysis for this student-model pair.
             # Crucially, pass the `corpus_graph` if available to avoid rebuilding it repeatedly.

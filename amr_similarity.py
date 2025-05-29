@@ -28,11 +28,12 @@ StoG (Stack-Transformer) model from `amrlib`.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 import amrlib
 import penman  # Required for graph manipulation
 from amrlib.evaluate.smatch_enhanced import compute_smatch  # Enhanced for more detailed Smatch scores
+from amrlib.models.StoG import StoG  # Import StoG for type hinting
 
 # --- Rich Logging (Optional) ---
 try:
@@ -50,9 +51,10 @@ logger = logging.getLogger(__name__)
 # Attempt to load the model once when the module is imported.
 # This makes it available globally within this module.
 # Users of the AMRSimilarityCalculator class will pass this pre-loaded model.
-# TODO: Consider making the model path configurable via environment variable or a config file
+# TODO: (Jules, #1) Consider making the model path configurable via environment variable or a config file
 # for more flexibility, instead of hardcoding.
 # For now, this path is a placeholder and would need to be valid in the execution environment.
+MAX_TEXT_SAMPLE_LENGTH = 100
 try:
     # IMPORTANT: The model_dir path below is currently hardcoded.
     # Users should modify this path to point to their downloaded amrlib model directory.
@@ -60,12 +62,15 @@ try:
     # for example, via an environment variable, a configuration file, or by
     # modifying AMRSimilarityCalculator to accept a model path if it were to handle loading.
     STOG_MODEL = amrlib.load_stog_model(
-        model_dir="/mnt/e/Machine_learning/NLP-Revise/essay_grading/model_parse_xfm_bart_base-v0_1_0", # Example path
-        device="cpu", # Default to CPU, can be changed if GPU is available
+        model_dir="/mnt/e/Machine_learning/NLP-Revise/essay_grading/model_parse_xfm_bart_base-v0_1_0",  # Example path
+        device="cpu",  # Default to CPU, can be changed if GPU is available
     )
     logger.info("Default AMR StoG model loaded successfully.")
-except Exception as e:
-    logger.error(f"Failed to load default AMR StoG model: {e}. AMRSimilarityCalculator may not work unless a model is provided at instantiation.")
+except Exception:
+    logger.exception(
+        "Failed to load default AMR StoG model. "
+        "AMRSimilarityCalculator may not work unless a model is provided at instantiation.",
+    )
     STOG_MODEL = None
 
 
@@ -86,14 +91,17 @@ class AMRSimilarityCalculator:
     Calculated Features:
     - Smatch (F-score, Precision, Recall): Measures structural similarity between AMR graphs.
     - Concept Overlap (Jaccard Index): Similarity based on common concepts (nodes and literals).
-    - Named Entity Overlap (Jaccard Index): Similarity based on common named entities (identified by :name or :wiki links).
-    - Negation Overlap (Jaccard Index): Checks for presence of negations (currently a simplified check).
-    - Root Concept Similarity: Checks if the main concepts (roots) of the AMR graphs are the same.
+    - Named Entity Overlap (Jaccard Index): Similarity based on common named entities
+      (identified by :name or :wiki links).
+    - Negation Overlap (Jaccard Index): Checks for presence of negations
+      (currently a simplified check).
+    - Root Concept Similarity: Checks if the main concepts (roots) of the AMR
+      graphs are the same.
 
     Future features could include similarity based on frames, semantic roles, reentrancies, etc.
     """
 
-    def __init__(self, stog_model: Any) -> None: # TODO: Replace Any with specific amrlib model type
+    def __init__(self, stog_model: StoG) -> None:  # TODO: (Jules, #1) Replace Any with specific amrlib model type
         """Initialize AMRSimilarityCalculator with a pre-loaded `amrlib` StoG model.
 
         Args:
@@ -114,7 +122,7 @@ class AMRSimilarityCalculator:
     # This simplifies the class and makes model management more explicit for the user.
 
     def _parse_amr(self, text: str) -> Optional[str]:
-        """Parses input text into an AMR graph string in PENMAN format.
+        """Parse input text into an AMR graph string in PENMAN format.
 
         This method handles basic sentence splitting (splitting by periods).
         For more complex texts, a dedicated sentence segmenter might be preferable
@@ -157,12 +165,12 @@ class AMRSimilarityCalculator:
                 return graphs_penman[0]
             logger.warning("AMR parsing did not yield a graph for the first sentence.")
             return None
-        except Exception as e: # Catching a broad exception as amrlib can raise various errors.
-            logger.exception(f"AMR parsing failed for text '{text[:50]}...'. Error: {e}")
+        except Exception:  # Catching a broad exception as amrlib can raise various errors.
+            logger.exception(f"AMR parsing failed for text '{text[:50]}...'.")
             return None
 
     def _get_graph_concepts(self, penman_graph_str: str) -> set[str]:
-        """Extracts concepts (instance labels and constants) from an AMR graph string.
+        """Extract concepts (instance labels and constants) from an AMR graph string.
 
         Concepts include:
         1.  Instance labels (e.g., 'dog' from `(d / dog)`).
@@ -198,8 +206,8 @@ class AMRSimilarityCalculator:
             # An edge is a triple (source_variable, role, target_variable_or_constant).
             # Example: `(c / city :name (n / name :op1 "London"))` -> "London" is a constant.
             # Example: `(d / dog :color "blue")` -> "blue" is a constant target in an attribute-like edge.
-            # Penman's `edges()` and `attributes()` can sometimes overlap in what they represent based on AMR structure.
-            # We iterate through both to be comprehensive.
+            # Penman's `edges()` and `attributes()` can sometimes overlap in what they
+            # represent based on AMR structure. We iterate through both to be comprehensive.
             for _source_var, _role, target in graph.edges():
                 # If the target is not a variable within this graph, it's considered a constant.
                 if target not in variables:
@@ -217,15 +225,15 @@ class AMRSimilarityCalculator:
                     constant_val = str(target).strip('"')
                     concepts.add(constant_val)
 
-        except penman.DecodeError as e:
-            logger.exception(f"Penman library failed to decode graph for concept extraction:\n{penman_graph_str}\nError: {e}")
+        except penman.DecodeError:
+            logger.exception(f"Penman library failed to decode graph for concept extraction:\n{penman_graph_str}")
             # Re-raise or handle as per desired error strategy; here, we log and return current concepts.
-        except Exception as e:  # Catch other potential errors during processing.
-            logger.exception(f"Error processing graph concepts with penman library: {e}\nGraph:\n{penman_graph_str}")
+        except Exception:  # Catch other potential errors during processing.
+            logger.exception(f"Error processing graph concepts with penman library.\nGraph:\n{penman_graph_str}")
         return concepts
 
     def _get_named_entities(self, penman_graph_str: str) -> set[str]:
-        """Extracts named entities from an AMR graph string.
+        """Extract named entities from an AMR graph string.
 
         Named entities are typically identified by `:wiki` links (pointing to Wikipedia
         titles, often represented as string constants like `"-"` if not linked) or
@@ -265,8 +273,7 @@ class AMRSimilarityCalculator:
                 # Handling :name when it directly points to a constant string.
                 # Example: (c / country :name "Wonderland")
                 elif role == ":name" and target not in variables:
-                     nes.add(str(target).strip('"'))
-
+                    nes.add(str(target).strip('"'))
 
             # Look for :wiki or :name relations in edges.
             # Edges can link variables or a variable to a constant.
@@ -283,14 +290,14 @@ class AMRSimilarityCalculator:
                 # would require traversing to the `name` instance `n` and collecting its :op parts.
                 # This is currently not implemented for simplicity.
 
-        except penman.DecodeError as e:
-            logger.exception(f"Penman library failed to decode graph for NE extraction:\n{penman_graph_str}\nError: {e}")
-        except Exception as e:
-            logger.exception(f"Error processing named entities with penman library: {e}\nGraph:\n{penman_graph_str}")
+        except penman.DecodeError:
+            logger.exception(f"Penman library failed to decode graph for NE extraction:\n{penman_graph_str}")
+        except Exception:
+            logger.exception(f"Error processing named entities with penman library.\nGraph:\n{penman_graph_str}")
         return nes
 
     def _get_negations(self, penman_graph_str: str) -> set[str]:
-        """Detects negations in an AMR graph string.
+        """Detect negations in an AMR graph string.
 
         This method currently uses a simplified approach, checking for the literal
         string ':polarity -' in the PENMAN graph, and returns a placeholder concept if found.
@@ -317,7 +324,8 @@ class AMRSimilarityCalculator:
             # Current simplified check: looks for the literal string ":polarity -" in the PENMAN graph.
             # This is a basic proxy for negation detection and is less robust than full graph parsing.
             # A more accurate method would use the penman library to parse the graph and
-            # then identify nodes/edges explicitly indicating negation (e.g., as shown in the commented-out example below).
+            # then identify nodes/edges explicitly indicating negation (e.g., as shown
+            # in the commented-out example below).
             if ":polarity -" in penman_graph_str:
                 negated_concepts.add(NEGATION_PLACEHOLDER)
                 # Example of how to use penman to find negated concepts (more robust):
@@ -330,14 +338,14 @@ class AMRSimilarityCalculator:
                 #             if inst_var == var:
                 #                 negated_concepts.add(str(concept)) # Or var itself
                 #                 break
-        except penman.DecodeError as e:
-            logger.exception(f"Penman library failed to decode graph for negation detection:\n{penman_graph_str}\nError: {e}")
-        except Exception as e: # Catch other potential errors.
-            logger.exception(f"Error parsing negations from PENMAN string: {e}\nGraph:\n{penman_graph_str}")
+        except penman.DecodeError:
+            logger.exception(f"Penman library failed to decode graph for negation detection:\n{penman_graph_str}")
+        except Exception:  # Catch other potential errors.
+            logger.exception(f"Error parsing negations from PENMAN string.\nGraph:\n{penman_graph_str}")
         return negated_concepts
 
     def _get_root_concept(self, penman_graph_str: str) -> Optional[str]:
-        """Extracts the concept of the root node from an AMR graph string.
+        """Extract the concept of the root node from an AMR graph string.
 
         The root of the graph is indicated by `graph.top` in the `penman` library.
         This method finds the instance declaration corresponding to this top variable.
@@ -368,18 +376,18 @@ class AMRSimilarityCalculator:
             # An instance is a triple (variable, concept, role).
             for var, concept_label, _role in graph.instances():
                 if var == top_variable:
-                    return str(concept_label) # Return the concept label as string.
+                    return str(concept_label)  # Return the concept label as string.
             logger.warning(f"Root concept not found for top variable '{top_variable}' in graph:\n{penman_graph_str}")
-            return None # Should ideally not happen if top_variable is valid and in instances.
-        except penman.DecodeError as e:
-            logger.exception(f"Penman library failed to decode graph for root concept extraction:\n{penman_graph_str}\nError: {e}")
+            return None  # Should ideally not happen if top_variable is valid and in instances.
+        except penman.DecodeError:
+            logger.exception(f"Penman library failed to decode graph for root concept extraction:\n{penman_graph_str}")
             return None
-        except Exception as e:
-            logger.exception(f"Error processing root concept with penman library: {e}\nGraph:\n{penman_graph_str}")
+        except Exception:
+            logger.exception(f"Error processing root concept with penman library.\nGraph:\n{penman_graph_str}")
             return None
 
     def calculate_amr_features(self, text1: str, text2: str) -> dict[str, Optional[float]]:
-        """Calculates a set of similarity features based on AMR analysis of two texts.
+        """Calculate a set of similarity features based on AMR analysis of two texts.
 
         This method first parses both input texts into AMR graphs. Then, it computes
         various similarity scores based on these graphs, including Smatch, concept overlap,
@@ -403,7 +411,7 @@ class AMRSimilarityCalculator:
             "smatch_recall": None,
             "concept_jaccard": None,
             "named_entity_jaccard": None,
-            "negation_jaccard": None, # Based on placeholder detection
+            "negation_jaccard": None,  # Based on placeholder detection
             "root_similarity": None,
             # Placeholders for features that could be implemented in the future
             "frame_similarity": None,
@@ -411,12 +419,12 @@ class AMRSimilarityCalculator:
             "reentrancy_similarity": None,
             "degree_similarity": None,
             "quantifier_similarity": None,
-            "wlk_similarity": None, # Weisfeiler-Lehman Kernel or similar graph kernel
+            "wlk_similarity": None,  # Weisfeiler-Lehman Kernel or similar graph kernel
         }
 
         if not self.stog_model:
             logger.error("AMR StoG model not loaded. Cannot calculate AMR features.")
-            return results # Return dictionary with all Nones
+            return results  # Return dictionary with all Nones
 
         logger.info("Parsing Text 1 for AMR...")
         amr1_penman = self._parse_amr(text1)
@@ -428,28 +436,35 @@ class AMRSimilarityCalculator:
             # We can still return the results dict; features that couldn't be computed will remain None.
             return results
 
-        # 1. Smatch Calculation (Precision, Recall, F-score)
-        # Smatch measures the similarity between two AMR graphs.
+        self._calculate_smatch(amr1_penman, amr2_penman, results)
+        self._calculate_concept_overlap(amr1_penman, amr2_penman, results)
+        self._calculate_named_entity_overlap(amr1_penman, amr2_penman, results)
+        self._calculate_negation_overlap(amr1_penman, amr2_penman, results)
+        self._calculate_root_similarity(amr1_penman, amr2_penman, results)
+
+        logger.info("Finished calculating implemented AMR features.")
+        return results
+
+    def _calculate_smatch(self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]]) -> None:
+        """Calculates Smatch scores and updates the results dictionary."""
         try:
-            # `compute_smatch` from `amrlib.evaluate.smatch_enhanced` takes lists of PENMAN strings.
             precision, recall, f_score = compute_smatch([amr1_penman], [amr2_penman])
             results["smatch_fscore"] = f_score
             results["smatch_precision"] = precision
             results["smatch_recall"] = recall
             logger.info(f"Smatch calculated: F={f_score:.4f}, P={precision:.4f}, R={recall:.4f}")
-        except Exception as e: # Catching broad exception as smatch calculation can fail.
-            logger.exception(f"Smatch calculation failed. Error: {e}")
+        except Exception:
+            logger.exception("Smatch calculation failed.")
 
-        # 2. Concept Overlap (Jaccard Index)
-        # Measures similarity based on the set of concepts present in both AMR graphs.
+    def _calculate_concept_overlap(
+        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+    ) -> None:
+        """Calculates concept overlap and updates the results dictionary."""
         try:
             concepts1 = self._get_graph_concepts(amr1_penman)
             concepts2 = self._get_graph_concepts(amr2_penman)
             intersection = len(concepts1.intersection(concepts2))
             union = len(concepts1.union(concepts2))
-            # Jaccard Index: |A intersect B| / |A union B|
-            # If both sets are empty, Jaccard is 1 (they are perfectly similar in their emptiness).
-            # If union is 0 but not both are empty (shouldn't happen if one is non-empty), result is 0.
             if union == 0:
                 results["concept_jaccard"] = 1.0 if not concepts1 and not concepts2 else 0.0
             else:
@@ -457,11 +472,13 @@ class AMRSimilarityCalculator:
             logger.debug(
                 f"Concepts: Set1={len(concepts1)}, Set2={len(concepts2)}, Jaccard={results['concept_jaccard']:.4f}",
             )
-        except Exception as e:
-            logger.exception(f"Concept similarity calculation failed. Error: {e}")
+        except Exception:
+            logger.exception("Concept similarity calculation failed.")
 
-        # 3. Named Entity Overlap (Jaccard Index)
-        # Measures similarity based on the set of named entities found in both AMR graphs.
+    def _calculate_named_entity_overlap(
+        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+    ) -> None:
+        """Calculates named entity overlap and updates the results dictionary."""
         try:
             ne1 = self._get_named_entities(amr1_penman)
             ne2 = self._get_named_entities(amr2_penman)
@@ -474,77 +491,68 @@ class AMRSimilarityCalculator:
             logger.debug(
                 f"Named Entities: Set1={len(ne1)}, Set2={len(ne2)}, Jaccard={results['named_entity_jaccard']:.4f}",
             )
-        except Exception as e:
-            logger.exception(f"Named entity similarity calculation failed. Error: {e}")
+        except Exception:
+            logger.exception("Named entity similarity calculation failed.")
 
-        # 4. Negation Overlap (Simplified - based on placeholder)
-        # Checks if both texts contain a negation. Current implementation is basic.
-        # A more meaningful score would compare which concepts are negated.
+    def _calculate_negation_overlap(
+        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+    ) -> None:
+        """Calculates negation overlap and updates the results dictionary."""
         try:
-            neg1 = self._get_negations(amr1_penman) # Set containing NEGATION_PLACEHOLDER or empty
+            neg1 = self._get_negations(amr1_penman)
             neg2 = self._get_negations(amr2_penman)
-
-            # If both have the placeholder, they match (1.0). Otherwise, no match (0.0).
-            # This is a binary match on the presence of any negation.
             both_have_negation = NEGATION_PLACEHOLDER in neg1 and NEGATION_PLACEHOLDER in neg2
             neither_has_negation = NEGATION_PLACEHOLDER not in neg1 and NEGATION_PLACEHOLDER not in neg2
-
             if both_have_negation or neither_has_negation:
-                 results["negation_jaccard"] = 1.0 # Both have or both don't have negation
+                results["negation_jaccard"] = 1.0
             else:
-                 results["negation_jaccard"] = 0.0 # One has, one doesn't
+                results["negation_jaccard"] = 0.0
+            logger.debug(
+                f"Negations: Set1 presence={NEGATION_PLACEHOLDER in neg1}, "
+                f"Set2 presence={NEGATION_PLACEHOLDER in neg2}, Match={results['negation_jaccard']:.4f}",
+            )
+        except Exception:
+            logger.exception("Negation similarity calculation failed.")
 
-            # An alternative Jaccard on the placeholder itself (less intuitive for binary presence):
-            # intersection_neg = len(neg1.intersection(neg2))
-            # union_neg = len(neg1.union(neg2))
-            # if union_neg == 0:
-            #    results["negation_jaccard"] = 1.0
-            # else:
-            #    results["negation_jaccard"] = intersection_neg / union_neg
-            logger.debug(f"Negations: Set1 presence={NEGATION_PLACEHOLDER in neg1}, Set2 presence={NEGATION_PLACEHOLDER in neg2}, Match={results['negation_jaccard']:.4f}")
-
-        except Exception as e:
-            logger.exception(f"Negation similarity calculation failed. Error: {e}")
-
-        # 5. Root Concept Similarity
-        # Checks if the main concept (root) of the AMR graphs is the same.
+    def _calculate_root_similarity(
+        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+    ) -> None:
+        """Calculates root similarity and updates the results dictionary."""
         try:
             root1 = self._get_root_concept(amr1_penman)
             root2 = self._get_root_concept(amr2_penman)
-            # Exact match: 1.0 if roots are identical and not None, 0.0 otherwise.
             results["root_similarity"] = 1.0 if root1 is not None and root1 == root2 else 0.0
             logger.debug(f"Roots: R1='{root1}', R2='{root2}', Sim={results['root_similarity']:.4f}")
-        except Exception as e:
-            logger.exception(f"Root similarity calculation failed. Error: {e}")
+        except Exception:
+            logger.exception("Root similarity calculation failed.")
 
-        logger.info("Finished calculating implemented AMR features.")
-        return results
 
 # Example usage within the `if __name__ == "__main__":` block
 if __name__ == "__main__":
     # --- Configure Rich Logging (if available) ---
-    logging.root.handlers.clear() # Clear any existing handlers
+    logging.root.handlers.clear()  # Clear any existing handlers
     LOG_LEVEL = logging.INFO  # Default log level, change to DEBUG for more verbosity
     logging.root.setLevel(LOG_LEVEL)
-    _use_rich_logging = False # Flag to track if Rich logging is active
+    _use_rich_logging = False  # Flag to track if Rich logging is active
 
     if _rich_available:
         try:
             # Setup RichHandler for pretty console logging
             rich_handler = RichHandler(
                 level=LOG_LEVEL,
-                show_path=False, # Don't show module path in log output
-                rich_tracebacks=True, # Enable rich tracebacks for exceptions
-                markup=True, # Allow rich markup in log messages
+                show_path=False,  # Don't show module path in log output
+                rich_tracebacks=True,  # Enable rich tracebacks for exceptions
+                markup=True,  # Allow rich markup in log messages
             )
             logging.root.addHandler(rich_handler)
             from rich.console import Console
-            _console = Console() # For printing separators or other rich content
+
+            _console = Console()  # For printing separators or other rich content
             _separator_line = lambda: _console.print("-" * 70, style="dim")
             _use_rich_logging = True
             logger.info("Keyword/Semantic/AMR Example [bold green](using Rich logging)[/bold green]")
-        except Exception as e: # Fallback if Rich setup fails for any reason
-            _rich_available = False # Ensure flag is correctly set if setup fails
+        except Exception as e:  # Fallback if Rich setup fails for any reason
+            _rich_available = False  # Ensure flag is correctly set if setup fails
             logger.warning(f"Rich logging setup failed: {e}. Falling back to standard logging.")
 
     if not _use_rich_logging:
@@ -553,40 +561,39 @@ if __name__ == "__main__":
             level=LOG_LEVEL,
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
-        _separator_line = lambda: print("-" * 70) # Simple separator for standard logging
+        _separator_line = lambda: print("-" * 70)  # Simple separator for standard logging
         logger.info("Keyword/Semantic/AMR Example (standard logging - install 'rich' for enhanced output)")
 
     # --- Example Paragraphs for Demonstration ---
     para_a = "The boy wants to visit the park. He likes green trees."
     para_b = "The child desires to go to the green park. He loves trees."
     para_c = "A girl eats an apple quickly. She finished her snack."
-    para_empty = "" # Test case with an empty paragraph
+    para_empty = ""  # Test case with an empty paragraph
 
     # --- Initialize AMR Similarity Calculator ---
     amr_calculator_instance = None
-    enable_amr_similarity_processing = True # Flag to control AMR processing
+    enable_amr_similarity_processing = True  # Flag to control AMR processing
 
-    if STOG_MODEL is not None: # Check if the global model loaded successfully
+    if STOG_MODEL is not None:  # Check if the global model loaded successfully
         try:
             logger.info("Initializing AMR Similarity Calculator with pre-loaded model...")
             amr_calculator_instance = AMRSimilarityCalculator(stog_model=STOG_MODEL)
             logger.info("AMR Similarity Calculator initialized successfully.")
-        except ValueError as e: # Catch specific error from __init__
-            logger.error(f"Failed to initialize AMRSimilarityCalculator: {e}")
+        except ValueError:  # Catch specific error from __init__
+            logger.exception("Failed to initialize AMRSimilarityCalculator.")
             enable_amr_similarity_processing = False
-        except Exception: # Catch any other unexpected errors during init
+        except Exception:  # Catch any other unexpected errors during init
             logger.exception("An unexpected error occurred during AMRSimilarityCalculator initialization.")
             enable_amr_similarity_processing = False
     else:
         logger.error("Default AMR StoG model was not loaded. AMR similarity features will be disabled.")
         enable_amr_similarity_processing = False
 
-
     # --- Define Pairs of Texts to Process ---
     text_pairs_to_analyze = [
         ("Similar Paragraphs (A vs B)", para_a, para_b),
         ("Dissimilar Paragraphs (A vs C)", para_a, para_c),
-        ("Paragraph A vs Empty", para_a, para_empty), # Test with empty string
+        ("Paragraph A vs Empty", para_a, para_empty),  # Test with empty string
     ]
 
     # --- Main Processing Loop ---
@@ -604,13 +611,12 @@ if __name__ == "__main__":
             try:
                 amr_feature_results = amr_calculator_instance.calculate_amr_features(text_sample_1, text_sample_2)
                 all_calculated_features.update(amr_feature_results)
-            except Exception as e: # Catch errors during the feature calculation call itself
-                logger.exception(f"Error during AMR Feature calculation for '{description}'. Details: {e}")
+            except Exception:  # Catch errors during the feature calculation call itself
+                logger.exception(f"Error during AMR Feature calculation for '{description}'.")
         elif not enable_amr_similarity_processing:
             logger.warning("AMR Similarity processing is disabled due to model loading or initialization issues.")
-        else: # Should not happen if logic is correct, but as a fallback
+        else:  # Should not happen if logic is correct, but as a fallback
             logger.warning("AMR Similarity calculator not available. Skipping AMR features.")
-
 
         # --- Print Combined Results for the Current Pair ---
         log_header = f"Results for {description}"
@@ -619,9 +625,17 @@ if __name__ == "__main__":
         else:
             logger.info(f">>> {log_header}:")
 
-        # Log the input texts (first 50 chars for brevity if long)
-        logger.info(f' Text 1: "{text_sample_1[:100].strip()}..."' if len(text_sample_1) > 100 else f' Text 1: "{text_sample_1.strip()}"')
-        logger.info(f' Text 2: "{text_sample_2[:100].strip()}..."' if len(text_sample_2) > 100 else f' Text 2: "{text_sample_2.strip()}"')
+        # Log the input texts (first MAX_TEXT_SAMPLE_LENGTH chars for brevity if long)
+        logger.info(
+            f' Text 1: "{text_sample_1[:MAX_TEXT_SAMPLE_LENGTH].strip()}..."'
+            if len(text_sample_1) > MAX_TEXT_SAMPLE_LENGTH
+            else f' Text 1: "{text_sample_1.strip()}"',
+        )
+        logger.info(
+            f' Text 2: "{text_sample_2[:MAX_TEXT_SAMPLE_LENGTH].strip()}..."'
+            if len(text_sample_2) > MAX_TEXT_SAMPLE_LENGTH
+            else f' Text 2: "{text_sample_2.strip()}"',
+        )
 
         if not all_calculated_features:
             logger.info("  No features were calculated for this pair.")
@@ -629,13 +643,15 @@ if __name__ == "__main__":
             for feature_name, feature_value in all_calculated_features.items():
                 if isinstance(feature_value, float):
                     # Apply color coding for scores if Rich is used
-                    if _use_rich_logging and ("score" in feature_name or "similarity" in feature_name or "jaccard" in feature_name):
-                        color = "green" if feature_value > 0.6 else "yellow" if feature_value > 0.2 else "red" # noqa: PLR2004
+                    if _use_rich_logging and (
+                        "score" in feature_name or "similarity" in feature_name or "jaccard" in feature_name
+                    ):
+                        color = "green" if feature_value > 0.6 else "yellow" if feature_value > 0.2 else "red"  # noqa: PLR2004
                         logger.info(f"  {feature_name}: [{color}]{feature_value:.4f}[/{color}]")
                     else:
-                        logger.info(f"  {feature_name}: {feature_value:.4f}") # Standard float formatting
-                else: # For None or other types
+                        logger.info(f"  {feature_name}: {feature_value:.4f}")  # Standard float formatting
+                else:  # For None or other types
                     logger.info(f"  {feature_name}: {feature_value}")
-        _separator_line() # Print a separator line after each pair's results
+        _separator_line()  # Print a separator line after each pair's results
 
     logger.info("Similarity Calculation Example Finished.")

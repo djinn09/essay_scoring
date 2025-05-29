@@ -26,6 +26,7 @@ The module is designed with configurability (via Pydantic models like
 `SimilarityCalculatorConfig`) and efficiency (through caching and parallel
 processing) in mind.
 """
+
 # Use annotations for cleaner type hinting (requires Python 3.7+)
 from __future__ import annotations
 
@@ -137,7 +138,7 @@ def _ensure_nltk_data(resource_name: str, download_dir: Optional[str] = None) ->
         nltk.data.find(_NLTK_RESOURCES[resource_name])
         _NLTK_DATA_DOWNLOADED[resource_name] = True  # Mark as available for the current session.
         logging.debug("NLTK data '%s' found locally.", resource_name)
-    except LookupError: # Raised by nltk.data.find if the resource is not found.
+    except LookupError:  # Raised by nltk.data.find if the resource is not found.
         logging.info(f"NLTK data '{resource_name}' not found locally. Attempting download...")
         try:
             # Attempt to download the specified NLTK resource.
@@ -149,16 +150,16 @@ def _ensure_nltk_data(resource_name: str, download_dir: Optional[str] = None) ->
             _NLTK_DATA_DOWNLOADED[resource_name] = True  # Mark as available post-download.
             logging.info(f"NLTK data '{resource_name}' downloaded and verified successfully.")
             return True
-        except Exception as e: # Catch any exception during download or re-verification.
+        except Exception as e:  # Catch any exception during download or re-verification.
             # Log a warning if download or subsequent verification fails.
             # This indicates that features dependent on this resource might not work.
             warnings.warn(
                 f"Failed to download or verify NLTK data '{resource_name}'. "
                 f"Dependent features might fail or be impaired. Error: {e}",
                 RuntimeWarning,
-                stacklevel=2, # Show warning pointing to the caller of _ensure_nltk_data
+                stacklevel=2,  # Show warning pointing to the caller of _ensure_nltk_data
             )
-            return False # Download/verification failed.
+            return False  # Download/verification failed.
     return True  # Resource was found initially or successfully downloaded.
 
 
@@ -241,12 +242,12 @@ def tokenize_text(text: str) -> tuple[str, ...]:
         cleaned_text = preprocess_text_base(text)  # Apply basic cleaning (lowercase, punctuation removal)
         # Use NLTK's recommended tokenizer for word splitting.
         return tuple(word_tokenize(cleaned_text))
-    except Exception as e: # Catch any exception during tokenization.
+    except Exception as e:  # Catch any exception during tokenization.
         # Log the failure and fallback to a simple space-based split for robustness.
         # This might happen if 'punkt' data is corrupted or an unusual text causes issues.
         logging.debug(
             f"NLTK word_tokenize failed for text: '{text[:50]}...'. Error: {e}. Falling back to simple split.",
-            exc_info=True, # Log full traceback for debugging.
+            exc_info=True,  # Log full traceback for debugging.
         )
         # Fallback: split the already cleaned text by whitespace.
         return tuple(cleaned_text.split())
@@ -265,11 +266,11 @@ def lemmatize_tokens(tokens: tuple[str, ...]) -> tuple[str, ...]:
         A tuple of lemmatized tokens.
 
     """
-    lemmatizer = get_default_lemmatizer() # Get cached lemmatizer instance.
+    lemmatizer = get_default_lemmatizer()  # Get cached lemmatizer instance.
     try:
         # Apply lemmatization to each token in the input tuple.
         return tuple(lemmatizer.lemmatize(token) for token in tokens)
-    except Exception as e: # Catch potential errors during lemmatization.
+    except Exception as e:  # Catch potential errors during lemmatization.
         # Log if lemmatization fails, which can happen if NLTK data (WordNet, OMW) is missing or corrupt.
         logging.debug(
             f"Lemmatization failed for tokens: {tokens[:5]}... Error: {e}. "
@@ -453,7 +454,7 @@ class TFIDFCalculator:
             (float) or None if a calculation failed.
 
         """
-        metrics: dict[str, Optional[float]] = {} # Initialize dictionary to store results.
+        metrics: dict[str, Optional[float]] = {}  # Initialize dictionary to store results.
         try:
             # Fit and transform the current pair of texts into a TF-IDF matrix.
             # This means the TF-IDF vocabulary is specific to this pair.
@@ -465,7 +466,8 @@ class TFIDFCalculator:
             if tfidf_matrix.shape[1] == 0:
                 logging.debug(
                     "TF-IDF found no features for texts (vocab may be empty after processing): '%s...' vs '%s...'",
-                    text1[:50], text2[:50],
+                    text1[:50],
+                    text2[:50],
                 )
                 # Define behavior for no features:
                 # Cosine similarity is undefined (or 0 if vectors are zero, 1 if both truly identical empty strings).
@@ -474,21 +476,32 @@ class TFIDFCalculator:
                 # For simplicity, if no features, assume maximal difference for distances, minimal/zero for similarity,
                 # unless both texts were effectively empty.
                 are_both_effectively_empty = not text1.strip() and not text2.strip()
-                metrics.update({
-                    "tfidf_cosine_similarity": 1.0 if are_both_effectively_empty else 0.0,
-                    "tfidf_jaccard_distance": 0.0 if are_both_effectively_empty else 1.0, # Jaccard distance of empty sets is 0.
-                    "tfidf_euclidean_distance": 0.0 if are_both_effectively_empty else float("inf"), # Or some large number
-                    "tfidf_manhattan_distance": 0.0 if are_both_effectively_empty else float("inf"), # Or some large number
-                    "tfidf_minkowski_distance": 0.0 if are_both_effectively_empty else float("inf"), # Or some large number
-                    "tfidf_hamming_distance": 0.0 if are_both_effectively_empty else 1.0, # Hamming distance
-                })
-                return metrics # Early exit if no features.
+                metrics.update(
+                    {
+                        "tfidf_cosine_similarity": 1.0 if are_both_effectively_empty else 0.0,
+                        "tfidf_jaccard_distance": 0.0
+                        if are_both_effectively_empty
+                        else 1.0,  # Jaccard distance of empty sets is 0.
+                        "tfidf_euclidean_distance": 0.0
+                        if are_both_effectively_empty
+                        else float("inf"),  # Or some large number
+                        "tfidf_manhattan_distance": 0.0
+                        if are_both_effectively_empty
+                        else float("inf"),  # Or some large number
+                        "tfidf_minkowski_distance": 0.0
+                        if are_both_effectively_empty
+                        else float("inf"),  # Or some large number
+                        "tfidf_hamming_distance": 0.0 if are_both_effectively_empty else 1.0,  # Hamming distance
+                    },
+                )
+                return metrics  # Early exit if no features.
 
             # --- Calculate Cosine Similarity ---
             # `cosine_similarity` returns a matrix; [0, 1] gives similarity between text1 and text2.
             cos_sim = cosine_similarity(tfidf_matrix)[0, 1]
-            metrics["tfidf_cosine_similarity"] = float(cos_sim) if not math.isnan(cos_sim) else (1.0 if not text1.strip() and not text2.strip() else 0.0)
-
+            metrics["tfidf_cosine_similarity"] = (
+                float(cos_sim) if not math.isnan(cos_sim) else (1.0 if not text1.strip() and not text2.strip() else 0.0)
+            )
 
             # --- Calculate Distances ---
             # Some distance metrics in sklearn require dense arrays.
@@ -499,7 +512,7 @@ class TFIDFCalculator:
 
             # --- Jaccard & Hamming Distances on Binarized TF-IDF vectors ---
             # These metrics operate on the presence/absence of terms rather than their TF-IDF weights.
-            binary_presence_matrix = (dense_matrix > 0).astype(bool) # Convert TF-IDF to binary (term present/absent).
+            binary_presence_matrix = (dense_matrix > 0).astype(bool)  # Convert TF-IDF to binary (term present/absent).
 
             # Calculate Jaccard distance if at least one text has some terms present.
             if binary_presence_matrix[0].any() or binary_presence_matrix[1].any():
@@ -513,12 +526,14 @@ class TFIDFCalculator:
                 metrics["tfidf_hamming_distance"] = float(
                     pairwise_distances(binary_presence_matrix.astype(int), metric="hamming")[0, 1],
                 )
-            else: # Both binarized vectors are all zeros.
-                metrics["tfidf_jaccard_distance"] = 0.0 # Jaccard distance of two empty sets is 0.
-                metrics["tfidf_hamming_distance"] = 0.0 # No differing bits if both are all zeros.
+            else:  # Both binarized vectors are all zeros.
+                metrics["tfidf_jaccard_distance"] = 0.0  # Jaccard distance of two empty sets is 0.
+                metrics["tfidf_hamming_distance"] = 0.0  # No differing bits if both are all zeros.
 
-        except Exception as e: # Catch any other error during TF-IDF metric calculation.
-            logging.debug(f"Error calculating TF-IDF metrics for '{text1[:50]}...' vs '{text2[:50]}...': {e}", exc_info=True)
+        except Exception as e:  # Catch any other error during TF-IDF metric calculation.
+            logging.debug(
+                f"Error calculating TF-IDF metrics for '{text1[:50]}...' vs '{text2[:50]}...': {e}", exc_info=True,
+            )
             # Ensure all TF-IDF metric keys are present in the output, defaulting to None on error.
             for k_tfidf in [
                 "tfidf_cosine_similarity",

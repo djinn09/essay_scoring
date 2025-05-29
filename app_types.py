@@ -24,13 +24,16 @@ class Essay(BaseModel):
     if multiple reference texts are applicable or if the essay is segmented.
     """
 
-    text: str | list[str] = Field(..., description="The essay text to be scored. Can be a single string or a list of strings (e.g., paragraphs).")
-    reference: str | list[str] = Field(..., description="The reference text(s) to compare against. Can be a single string or a list of strings.")
+    text: str | list[str] = Field(
+        ..., description="The essay text to be scored. Can be a single string or a list of strings (e.g., paragraphs).",
+    )
+    reference: str | list[str] = Field(
+        ..., description="The reference text(s) to compare against. Can be a single string or a list of strings.",
+    )
 
 
 class SimilarityMetrics(BaseModel):
-    """Defines a comprehensive set of similarity and distance metrics that can be calculated
-    between two texts.
+    """Defines a comprehensive set of similarity and distance metrics that can be calculated between two texts.
 
     All fields are optional and default to 0.0, as some metrics might fail,
     not be applicable for certain inputs, or simply not be requested for a given analysis.
@@ -38,9 +41,17 @@ class SimilarityMetrics(BaseModel):
     """
 
     # Basic String / Sequence Metrics (often applied on lowercase, tokenized, or raw strings)
-    ratio: Optional[float] = Field(default=0.0, description="Similarity score from difflib.SequenceMatcher.ratio(). Measures likeness of sequences.")
-    normalized_levenshtein: Optional[float] = Field(default=0.0, description="Normalized Levenshtein similarity. 1.0 for identical strings, 0.0 for completely different.")
-    jaro_winkler: Optional[float] = Field(default=0.0, description="Jaro-Winkler similarity, emphasizes prefix matches. Score from 0.0 to 1.0.")
+    ratio: Optional[float] = Field(
+        default=0.0,
+        description="Similarity score from difflib.SequenceMatcher.ratio(). Measures likeness of sequences.",
+    )
+    normalized_levenshtein: Optional[float] = Field(
+        default=0.0,
+        description="Normalized Levenshtein similarity. 1.0 for identical strings, 0.0 for completely different.",
+    )
+    jaro_winkler: Optional[float] = Field(
+        default=0.0, description="Jaro-Winkler similarity, emphasizes prefix matches. Score from 0.0 to 1.0.",
+    )
     metric_lcs_similarity: Optional[float] = Field(
         default=0.0,
         description="Similarity based on the Longest Common Subsequence (LCS). Score often normalized.",
@@ -81,7 +92,7 @@ class SimilarityMetrics(BaseModel):
     )
     rfuzz_token_set_ratio: Optional[float] = Field(
         default=0.0,
-        description="RapidFuzz token set ratio, compares sets of tokens ignoring order and duplicates. Normalized to 0-1.",
+        description="RapidFuzz token set ratio, compares sets of tokens ignoring order and duplicates. Normalized to 0-1.",  # noqa: E501
     )
     rfuzz_token_sort_ratio: Optional[float] = Field(
         default=0.0,
@@ -89,7 +100,10 @@ class SimilarityMetrics(BaseModel):
     )
     rfuzz_wratio: Optional[float] = Field(
         default=0.0,
-        description="RapidFuzz weighted ratio, a more advanced ratio considering various factors. Normalized to 0-1 (can sometimes exceed 1 before normalization if original > 100).",
+        description=(
+            "RapidFuzz weighted ratio, a more advanced ratio considering various factors. "
+            "Normalized to 0-1 (can sometimes exceed 1 before normalization if original > 100)."
+        ),
     )
     rfuzz_qratio: Optional[float] = Field(
         default=0.0,
@@ -124,7 +138,9 @@ class SimilarityMetrics(BaseModel):
     # TF-IDF Based Metrics (vector space model comparisons)
     tfidf_cosine_similarity: Optional[float] = Field(
         default=0.0,
-        description="Cosine similarity between TF-IDF vectors of the texts. Ranges from -1 to 1 (usually 0 to 1 for TF-IDF).",
+        description=(
+            "Cosine similarity between TF-IDF vectors of the texts. Ranges from -1 to 1 (usually 0 to 1 for TF-IDF)."
+        ),
     )
     tfidf_euclidean_distance: Optional[float] = Field(
         default=0.0,
@@ -144,7 +160,9 @@ class SimilarityMetrics(BaseModel):
     )
     tfidf_minkowski_distance: Optional[float] = Field(
         default=0.0,
-        description="Minkowski distance between TF-IDF vectors (generalized form of Euclidean/Manhattan). Non-negative.",
+        description=(
+            "Minkowski distance between TF-IDF vectors (generalized form of Euclidean/Manhattan). Non-negative."
+        ),
     )
 
 
@@ -160,19 +178,29 @@ class TfidfConfig(BaseModel):
         description="Regular expression denoting what constitutes a 'token'.",
     )
     ngram_range: tuple[int, int] = Field(
-        default=(1, 1), # Default: unigrams only.
-        description="The lower and upper boundary of the range of n-values for different n-grams to be extracted. E.g., (1, 2) means unigrams and bigrams.",
+        default=(1, 1),  # Default: unigrams only.
+        description=(
+            "The lower and upper boundary of the range of n-values for different n-grams to be extracted. "
+            "E.g., (1, 2) means unigrams and bigrams."
+        ),
     )
     max_df: float = Field(
-        default=1.0, # Default: no upper limit on document frequency.
-        ge=0.0,      # max_df must be between 0.0 and 1.0 (if float) or >= 1 (if int).
+        default=1.0,  # Default: no upper limit on document frequency.
+        ge=0.0,  # max_df must be between 0.0 and 1.0 (if float) or >= 1 (if int).
         le=1.0,
-        description="When building the vocabulary, ignore terms that have a document frequency strictly higher than the given threshold (corpus-specific stop words). Expressed as a proportion (0.0 to 1.0) or absolute count.",
+        description=(
+            "When building the vocabulary, ignore terms that have a document frequency strictly higher "
+            "than the given threshold (corpus-specific stop words). Expressed as a proportion (0.0 to 1.0) "
+            "or absolute count."
+        ),
     )
     min_df: int = Field(
-        default=1, # Default: term must appear in at least one document.
+        default=1,  # Default: term must appear in at least one document.
         ge=0,
-        description="When building the vocabulary, ignore terms that have a document frequency strictly lower than the given threshold. Expressed as an absolute count.",
+        description=(
+            "When building the vocabulary, ignore terms that have a document frequency strictly lower "
+            "than the given threshold. Expressed as an absolute count."
+        ),
     )
 
 
@@ -198,7 +226,7 @@ class SimilarityCalculatorConfig(BaseModel):
         description="An optional list of custom stop words to be added to the default set or used exclusively.",
     )
     tfidf_config: TfidfConfig = Field(
-        default_factory=TfidfConfig, # Provides default TfidfConfig if not specified.
+        default_factory=TfidfConfig,  # Provides default TfidfConfig if not specified.
         description="Nested configuration object for TF-IDF vectorization parameters.",
     )
     # bleu_smoothing_function_name: Optional[str] = Field(default=None, description="Name of the BLEU smoothing function to use, if applicable.")
@@ -211,7 +239,9 @@ class SinglePairAnalysisInput(BaseModel):
     """
 
     model_answer: str = Field(..., description="The model or reference text string.")
-    student_text: str = Field(..., description="The student-provided text string to be analyzed against the model answer.")
+    student_text: str = Field(
+        ..., description="The student-provided text string to be analyzed against the model answer.",
+    )
     plagiarism_k: int = Field(
         default=3,
         gt=0,
@@ -247,23 +277,27 @@ class GraphSimilarityOutput(BaseModel):
         le=1.0,
         description="Density of the common subgraph. May be None if not applicable (e.g., too few nodes).",
     )
-    message: Optional[str] = Field(default=None, description="An optional message providing context or details about the calculation.")
+    message: Optional[str] = Field(
+        default=None, description="An optional message providing context or details about the calculation.",
+    )
 
 
 class PlagiarismScore(BaseModel):
-    """Represents the result of a plagiarism detection analysis.
-    """
+    """Represent the result of a plagiarism detection analysis."""
 
     overlap_percentage: float = Field(
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="Normalized plagiarism score, typically representing the degree of overlap or similarity, scaled to 0-1.",
+        description=(
+            "Normalized plagiarism score, typically representing the degree of overlap or similarity, scaled to 0-1."
+        ),
     )
 
 
 class OverlapCoefficient(BaseModel):
-    """Represents the overlap coefficient calculated between two sets of tokens.
+    """Represent the overlap coefficient calculated between two sets of tokens.
+
     Formula: |A intersect B| / min(|A|, |B|)
     """
 
@@ -276,7 +310,8 @@ class OverlapCoefficient(BaseModel):
 
 
 class SorensenDiceCoefficient(BaseModel):
-    """Represents the Sørensen-Dice coefficient (or Dice score) calculated between two sets of tokens.
+    """Represent the Sørensen-Dice coefficient (or Dice score) calculated between two sets of tokens.
+
     Formula: 2 * |A intersect B| / (|A| + |B|)
     """
 
@@ -289,9 +324,7 @@ class SorensenDiceCoefficient(BaseModel):
 
 
 class CharEqualityScore(BaseModel):
-    """Represents a character-by-character equality score, often with decaying weights
-    to emphasize initial matches.
-    """
+    """Represent a character-by-character equality score, often with decaying weights to emphasize initial matches."""
 
     score: float = Field(
         default=0.0,
@@ -301,19 +334,24 @@ class CharEqualityScore(BaseModel):
 
 
 class SemanticGraphSimilarity(BaseModel):
-    """Represents similarity scores derived from comparing semantic graphs (e.g., from spaCy dependency parses).
-    """
+    """Represent similarity scores derived from comparing semantic graphs (e.g., from spaCy dependency parses)."""
 
     similarity: float = Field(
-        default=0.0, ge=0.0, le=1.0,
+        default=0.0,
+        ge=0.0,
+        le=1.0,
         description="Overall similarity score, often an average or combination of node and edge similarities.",
     )
     nodes_jaccard: float = Field(
-        default=0.0, ge=0.0, le=1.0,
+        default=0.0,
+        ge=0.0,
+        le=1.0,
         description="Jaccard similarity of the node sets of the two graphs.",
     )
     edges_jaccard: float = Field(
-        default=0.0, ge=0.0, le=1.0,
+        default=0.0,
+        ge=0.0,
+        le=1.0,
         description="Jaccard similarity of the edge sets of the two graphs.",
     )
 
@@ -324,69 +362,90 @@ class SinglePairAnalysisResult(BaseModel):
     Each field is optional, allowing for flexibility if some analyses are skipped or fail.
     """
 
-    graph_similarity: Optional[GraphSimilarityOutput] = Field(default=None, description="Graph-based similarity scores.")
+    graph_similarity: Optional[GraphSimilarityOutput] = Field(
+        default=None, description="Graph-based similarity scores.",
+    )
     plagiarism_score: Optional[PlagiarismScore] = Field(default=None, description="Plagiarism detection score.")
     overlap_coefficient: Optional[OverlapCoefficient] = Field(default=None, description="Overlap coefficient score.")
-    dice_coefficient: Optional[SorensenDiceCoefficient] = Field(default=None, description="Sørensen-Dice coefficient score.")
-    char_equality_score: Optional[CharEqualityScore] = Field(default=None, description="Character-by-character equality score.")
-    semantic_graph_similarity: Optional[SemanticGraphSimilarity] = Field(default=None, description="Semantic graph similarity score (e.g., from spaCy). Active if spaCy components are used.")
+    dice_coefficient: Optional[SorensenDiceCoefficient] = Field(
+        default=None, description="Sørensen-Dice coefficient score.",
+    )
+    char_equality_score: Optional[CharEqualityScore] = Field(
+        default=None, description="Character-by-character equality score.",
+    )
+    semantic_graph_similarity: Optional[SemanticGraphSimilarity] = Field(
+        default=None,
+        description="Semantic graph similarity score (e.g., from spaCy). Active if spaCy components are used.",
+    )
 
 
 class KeywordMatcherConfig(BaseModel):
-    """Configuration settings for the `KeywordMatcher` class.
-    """
+    """Configure settings for the `KeywordMatcher` class."""
 
     use_lemmatization: bool = Field(
         default=True,
-        description="If True, keywords and text are lemmatized before matching. Relies on a globally available lemmatizer.",
+        description=(
+            "If True, keywords and text are lemmatized before matching. Relies on a globally available lemmatizer."
+        ),
     )
     use_pos_tagging: bool = Field(
         default=False,
         description="If True, keywords are extracted based on allowed Part-of-Speech (POS) tags from the source text.",
     )
     allowed_pos_tags: Optional[set[str]] = Field(
-        default=None, # If None and use_pos_tagging is True, a default set (e.g., nouns, adjectives) might be used.
-        description="Set of NLTK POS tags to consider for keyword extraction if `use_pos_tagging` is True. Example: {'NN', 'NNS', 'JJ'}.",
+        default=None,  # If None and use_pos_tagging is True, a default set (e.g., nouns, adjectives) might be used.
+        description=(
+            "Set of NLTK POS tags to consider for keyword extraction if `use_pos_tagging` is True. "
+            "Example: {'NN', 'NNS', 'JJ'}."
+        ),
     )
     custom_stop_words: Optional[set[str]] = Field(
         default=None,
         description="A set of custom stop words to be added to (or replace) the default NLTK English stop word list.",
     )
 
-    model_config = ConfigDict(extra="forbid") # Disallow extra fields not defined in the model.
+    model_config = ConfigDict(extra="forbid")  # Disallow extra fields not defined in the model.
 
 
 class KeywordMatcherScore(BaseModel):
-    """Contains scores and counts related to keyword matching between two texts.
-    """
+    """Contain scores and counts related to keyword matching between two texts."""
 
     keywords_from_a_count: int = Field(
-        default=0, ge=0,
+        default=0,
+        ge=0,
         description="Total number of unique keywords extracted from the primary text (text A or model text).",
     )
     matched_keyword_count: int = Field(
-        default=0, ge=0,
+        default=0,
+        ge=0,
         description="Number of unique keywords from text A that were found in text B (student text).",
     )
     keyword_coverage_score: float = Field(
-        default=0.0, ge=0.0, le=1.0,
-        description="Proportion of keywords from text A found in text B (matched_keyword_count / keywords_from_a_count).",
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Proportion of keywords from text A found in text B (matched_keyword_count / keywords_from_a_count)."
+        ),
     )
     vocabulary_cosine_similarity: float = Field(
-        default=0.0, ge=0.0, le=1.0,
+        default=0.0,
+        ge=0.0,
+        le=1.0,
         description="Cosine similarity between the (optionally non-stopword) vocabularies of the two texts.",
     )
 
 
-class MatcherScores(BaseModel): # This seems to be a wrapper, perhaps for future expansion or specific use context.
-    """Aggregates detailed results from the keyword matching process.
-    """
+class MatcherScores(BaseModel):  # This seems to be a wrapper, perhaps for future expansion or specific use context.
+    """Aggregate detailed results from the keyword matching process."""
 
     matched_keywords: list[str] = Field(
         default_factory=list,
         description="A list of specific keywords from the primary text (A) that were found in the secondary text (B).",
     )
-    keywords_matcher_result: KeywordMatcherScore = Field(..., description="The core scores and counts from keyword matching.")
+    keywords_matcher_result: KeywordMatcherScore = Field(
+        ..., description="The core scores and counts from keyword matching.",
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -399,8 +458,17 @@ class EssayScores(BaseModel):
     keyword matching scores, and POS-based scores.
     """
 
-    semantic_score: Optional[float] = Field(default=0.0, description="Overall semantic similarity score, possibly an aggregation or primary model output.")
-    similarity_metrics: SimilarityMetrics = Field(..., description="A collection of diverse similarity metrics calculated between the essay and reference text.")
-    text_score: SinglePairAnalysisResult = Field(..., description="Detailed analysis results for the essay against a reference, including plagiarism and graph metrics.")
+    semantic_score: Optional[float] = Field(
+        default=0.0, description="Overall semantic similarity score, possibly an aggregation or primary model output.",
+    )
+    similarity_metrics: SimilarityMetrics = Field(
+        ..., description="A collection of diverse similarity metrics calculated between the essay and reference text.",
+    )
+    text_score: SinglePairAnalysisResult = Field(
+        ...,
+        description="Detailed analysis results for the essay against a reference, including plagiarism and graph metrics.",  # noqa: E501
+    )
     keyword_matcher: KeywordMatcherScore = Field(..., description="Scores related to keyword matching and coverage.")
-    pos_score: Optional[float] = Field(default=0.0, description="Score based on Part-of-Speech (POS) tag patterns or similarity, if calculated.")
+    pos_score: Optional[float] = Field(
+        default=0.0, description="Score based on Part-of-Speech (POS) tag patterns or similarity, if calculated.",
+    )
