@@ -64,10 +64,9 @@ from typing import TYPE_CHECKING, Any, Optional  # Import necessary types for an
 
 import gender_guesser.detector as gender
 import spacy
-from spacy.tokens import Doc
 
 if TYPE_CHECKING:
-    from spacy.tokens import Token
+    from spacy.tokens import Doc, Token
 
 # --- Constants ---
 PROXIMITY_THRESHOLD = 0.05  # Used for candidate scoring

@@ -195,14 +195,11 @@ def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]
     matched_model_combos = 0
     for i, model_combo in enumerate(model_list):
         for j, cand_combo in enumerate(cand_list):
-            if len(model_combo) == TRIPLET_LENGTH and \
+            if (len(model_combo) == TRIPLET_LENGTH and \
                len(cand_combo) == TRIPLET_LENGTH and \
-               _match_triplet_with_logging(model_combo, cand_combo, i, j):
-                matched_model_combos += 1
-                break
-            elif len(model_combo) == DUPLET_LENGTH and \
+               _match_triplet_with_logging(model_combo, cand_combo, i, j)) or (len(model_combo) == DUPLET_LENGTH and \
                  len(cand_combo) == DUPLET_LENGTH and \
-                 _match_duplet_with_logging(model_combo, cand_combo, i, j):
+                 _match_duplet_with_logging(model_combo, cand_combo, i, j)):
                 matched_model_combos += 1
                 break
     return matched_model_combos / len(model_list) if model_list else 0.0

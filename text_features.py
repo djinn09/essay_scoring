@@ -69,7 +69,6 @@ import warnings
 from collections import defaultdict
 from typing import Any, Optional  # Added Union earlier, now just using specific types
 
-import nltk # Moved from bottom for E402
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field  # Pydantic imports
