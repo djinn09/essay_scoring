@@ -19,6 +19,8 @@ from config import spacy_model  # Imports the globally loaded spaCy model
 # This assumes config.py has successfully loaded a spaCy model.
 nlp = spacy_model
 SIMILARITY_THRESHOLD = 0.3  # Threshold for spaCy's vector similarity for matching verbs/nouns.
+TRIPLET_LENGTH = 3
+DUPLET_LENGTH = 2
 
 
 def extract_pos_combinations(text: str) -> list[list[str]]:
@@ -79,7 +81,7 @@ def pos_combinations(sentences: list[str]) -> list[list[str]]:
     pos_combinations: list[list[str]] = []  # List to store all extracted combinations.
     for _, sentence_text in enumerate(sentences):
         # Process each sentence with spaCy.
-        doc = nlp(sentence_text)  # type:ignore
+        doc = nlp(sentence_text)  # type: ignore[attr-defined]
         # Sets to store unique proper nouns, verbs, and nouns found in the sentence.
         proper_nouns: set[str] = set()
         verbs: set[str] = set()
@@ -108,7 +110,7 @@ def pos_combinations(sentences: list[str]) -> list[list[str]]:
     return pos_combinations
 
 
-def match_triplet(pronoun_a: str, verb_a: str, noun_a: str, pronoun_b: str, verb_b: str, noun_b: str) -> bool:
+def match_triplet(pronoun_a: str, verb_a: str, noun_a: str, *, pronoun_b: str, verb_b: str, noun_b: str) -> bool:
     """Compare two POS triplets for similarity.
 
     - Exact match across all three elements
@@ -150,7 +152,7 @@ def _match_triplet_with_logging(model_combo: list[str], cand_combo: list[str], i
     except Exception:
         sim_verb = sim_noun = 0.0
     print(f"[Triplet] Model combo {i} vs Cand combo {j} -> VerbSim={sim_verb:.3f}, NounSim={sim_noun:.3f}")
-    return match_triplet(pn_m, v_m, n_m, pn_c, v_c, n_c)
+    return match_triplet(pn_m, v_m, n_m, pronoun_b=pn_c, verb_b=v_c, noun_b=n_c)
 
 
 def _match_duplet_with_logging(
@@ -193,19 +195,21 @@ def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]
     matched_model_combos = 0
     for i, model_combo in enumerate(model_list):
         for j, cand_combo in enumerate(cand_list):
-            if len(model_combo) == 3 and len(cand_combo) == 3:
-                if _match_triplet_with_logging(model_combo, cand_combo, i, j):
-                    matched_model_combos += 1
-                    break
-            elif len(model_combo) == 2 and len(cand_combo) == 2:
-                if _match_duplet_with_logging(model_combo, cand_combo, i, j):
-                    matched_model_combos += 1
-                    break
+            if len(model_combo) == TRIPLET_LENGTH and \
+               len(cand_combo) == TRIPLET_LENGTH and \
+               _match_triplet_with_logging(model_combo, cand_combo, i, j):
+                matched_model_combos += 1
+                break
+            elif len(model_combo) == DUPLET_LENGTH and \
+                 len(cand_combo) == DUPLET_LENGTH and \
+                 _match_duplet_with_logging(model_combo, cand_combo, i, j):
+                matched_model_combos += 1
+                break
     return matched_model_combos / len(model_list) if model_list else 0.0
 
 
 def score_pos(model_text: str, candidate_text: str) -> float:
-    """Main entry point for POS-based scoring with optional coreference:
+    """Score texts based on Part-of-Speech (POS) pattern similarity.
 
     - Extract POS combinations from both texts
     - Calculate and log overlap score details
@@ -230,12 +234,16 @@ if __name__ == "__main__":
     else:
         examples = [
             (
-                "Dr. John Smith presented his new findings from the research. He said the project was a success because the team worked hard.",
-                "John Smith talked about the findings. Smith mentioned the project succeeded. The group was diligent.",
+                "Dr. John Smith presented his new findings from the research. "
+                "He said the project was a success because the team worked hard.",
+                "John Smith talked about the findings. Smith mentioned the project succeeded. "
+                "The group was diligent.",
             ),
             (
-                "The company launched its innovative product. The CEO, Mrs. Davis, explained that it would revolutionize the market.",
-                "A new device was revealed by the firm. Davis spoke about the plan. It is a game changer.",
+                "The company launched its innovative product. The CEO, Mrs. Davis, "
+                "explained that it would revolutionize the market.",
+                "A new device was revealed by the firm. Davis spoke about the plan. "
+                "It is a game changer.",
             ),
             ("The cat sat on the mat.", "The dog barked at the moon."),
             ("John saw Mary.", "Hello there."),

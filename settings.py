@@ -41,10 +41,15 @@ try:
     )
 except NameError:
     logging.basicConfig(level=log_level_to_use) # Fallback to basicConfig if setup_global_logger is not found
-    logging.warning("`setup_global_logger` not found (likely `logger_utill.py` is missing). Using basic logging configuration.")
-except Exception as e:
+    logging.warning(
+        "`setup_global_logger` not found (likely `logger_utill.py` is missing). "
+        "Using basic logging configuration."
+    )
+except Exception:
     logging.basicConfig(level=log_level_to_use)
-    logging.exception(f"Failed to setup global logger via `setup_global_logger`: {e}. Using basic logging configuration.")
+    logging.exception(
+        f"Failed to setup global logger via `setup_global_logger`. Using basic logging configuration."
+    )
 
 
 # Get a logger instance for this settings module, using the globally configured logger.
@@ -70,10 +75,10 @@ try:
         device=settings.semantic.device,
     )
     app_logger.info(f"Global semantic model '{settings.semantic.model_name}' initialized successfully.")
-except Exception as e:
+except Exception:
     app_logger.exception(
         f"Failed to initialize global semantic model '{settings.semantic.model_name}'. "
-        f"Semantic similarity features will likely fail. Error: {e}",
+        f"Semantic similarity features will likely fail."
     )
     semantic_model = None # Ensure variable exists even if loading fails.
 

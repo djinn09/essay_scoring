@@ -74,6 +74,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)  # Module-specific logger
 
 # --- Configuration for Similarity Score Interpretation (used in example) ---
+DEFAULT_DISTANCE_THRESHOLD = 0.5 # For example usage, to colorize distance scores
 GOOD_SIMILARITY_SCORE = float(os.getenv("GOOD_SIMILARITY_SCORE", "0.7"))
 BAD_SIMILARITY_SCORE = float(os.getenv("BAD_SIMILARITY_SCORE", "0.3"))
 
@@ -107,7 +108,7 @@ class SimilarityScores(BaseModel):
 
     cosine: Optional[float] = Field(default=None, description="Cosine similarity score", alias=METRIC_COSINE)
     euclidean: Optional[float] = Field(default=None, description="Euclidean distance score", alias=METRIC_EUCLIDEAN)
-    manhattan: Optional[float] = Field(default=None, description="Manhattan (L1) distance score", alias=METRIC_MANHATTAN)
+    manhattan: Optional[float] = Field(default=None, description="Manhattan (L1) distance", alias=METRIC_MANHATTAN)
 
 
 class SemanticCosineSimilarity:
@@ -148,7 +149,7 @@ class SemanticCosineSimilarity:
         overlap: int = 64,      # Default overlap, provides some context continuity
         batch_size: int = 32,   # Common default batch size for encoding
     ) -> None:
-        """Initializes the SemanticCosineSimilarity calculator.
+        """Initialize the SemanticCosineSimilarity calculator.
 
         Args:
             model (SentenceTransformer): An initialized Sentence Transformer model instance.
@@ -214,7 +215,7 @@ class SemanticCosineSimilarity:
         )
 
     def _get_aggregated_embedding(self, text: str) -> Optional[torch.Tensor]:
-        """Encodes a text string into a single aggregated embedding vector.
+        """Encode a text string into a single aggregated embedding vector.
 
         If the input `text` is longer than `self.chunk_size` (in characters),
         it is split into overlapping chunks. Each chunk is then encoded individually
@@ -320,13 +321,13 @@ class SemanticCosineSimilarity:
                 # If it's a scalar, unsqueeze it to make it a 1D tensor.
                 aggregated_embedding = aggregated_embedding.unsqueeze(0)
 
-        except Exception as e: # Catch any unexpected errors during encoding or aggregation.
-            logger.exception(f"Failed to encode or aggregate text: '{text_stripped[:70]}...'. Error: {e}")
+        except Exception: # Catch any unexpected errors during encoding or aggregation.
+            logger.exception(f"Failed to encode or aggregate text: '{text_stripped[:70]}...'.")
             aggregated_embedding = None # Ensure None is returned on failure.
         return aggregated_embedding
 
     def _resolve_requested_metrics(self, metrics_to_calculate: Optional[list[str]]) -> set[str]:
-        """Processes a list of user-requested metric names into a set of valid internal metric keys.
+        """Process a list of user-requested metric names into a set of valid internal metric keys.
 
         This method validates the requested metric names against `ALLOWED_METRICS_MAP`.
         If `metrics_to_calculate` is `None`, it defaults to calculating only cosine similarity.
@@ -368,7 +369,7 @@ class SemanticCosineSimilarity:
         is_text2_empty: bool,
         requested_metrics: set[str],
     ) -> tuple[bool, Optional[SimilarityScores]]:
-        """Checks for conditions that allow for an early exit without full embedding generation.
+        """Check for conditions that allow for an early exit without full embedding generation.
 
         These conditions include:
         - Texts being identical.
@@ -436,7 +437,7 @@ class SemanticCosineSimilarity:
         emb2: torch.Tensor, # Assumed to be a 1D tensor
         requested_metrics: set[str],
     ) -> SimilarityScores:
-        """Calculates the specified similarity/distance metrics given two 1D embedding tensors.
+        """Calculate the specified similarity/distance metrics given two 1D embedding tensors.
 
         Args:
             emb1 (torch.Tensor): The 1D embedding vector for the first text.
@@ -488,7 +489,7 @@ class SemanticCosineSimilarity:
         text2: str,
         metrics_to_calculate: Optional[list[str]] = None, # Default is None, handled by _resolve_requested_metrics
     ) -> Optional[SimilarityScores]:
-        """Calculates specified similarity and/or distance metrics between two text strings.
+        """Calculate specified similarity and/or distance metrics between two text strings.
 
         This is the main public method of the class. It orchestrates the process of:
         1. Validating requested metrics.
@@ -564,10 +565,10 @@ class SemanticCosineSimilarity:
             # Step 6: All checks passed, calculate metrics using the generated embeddings.
             return self._calculate_metrics_for_embeddings(emb1, emb2, requested_metrics)
 
-        except Exception as e: # Catch any other unexpected errors during the process.
+        except Exception: # Catch any other unexpected errors during the process.
             logger.exception(
                 f"An unexpected error occurred during embedding generation or metric calculation for texts: "
-                f"'{text1[:70]}...' vs '{text2[:70]}...'. Error: {e}",
+                f"'{text1[:70]}...' vs '{text2[:70]}...'.",
             )
             return None # Return None on unexpected failure.
 
@@ -717,9 +718,9 @@ if __name__ == "__main__":
                                 else "red"
                             )
                         elif "distance" in metric_key_alias:
-                            if value < 0.5:
+                            if value < DEFAULT_DISTANCE_THRESHOLD:
                                 color = "green"
-                            elif value < 1.0:
+                            elif value < 1.0: # This 1.0 is another potential magic number, but not in scope for this task
                                 color = "yellow"
                             else:
                                 color = "red"

@@ -10,7 +10,7 @@ from score import score_essay  # The primary function for scoring an essay.
 
 
 def main() -> EssayScores:
-    """Executes the primary essay grading process with sample inputs.
+    """Execute the primary essay grading process with sample inputs.
 
     This function calls the `score_essay` function with predefined essay and
     reference texts and logs the resulting scores.

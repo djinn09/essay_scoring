@@ -229,7 +229,8 @@ class SimilarityCalculatorConfig(BaseModel):
         default_factory=TfidfConfig,  # Provides default TfidfConfig if not specified.
         description="Nested configuration object for TF-IDF vectorization parameters.",
     )
-    # bleu_smoothing_function_name: Optional[str] = Field(default=None, description="Name of the BLEU smoothing function to use, if applicable.")
+    # bleu_smoothing_function_name: Optional[str] = Field(default=None,
+    #     description="Name of the BLEU smoothing function to use, if applicable.")
 
 
 class SinglePairAnalysisInput(BaseModel):
@@ -329,7 +330,7 @@ class CharEqualityScore(BaseModel):
     score: float = Field(
         default=0.0,
         ge=0.0,
-        description="The calculated character equality score. The maximum value depends on string length and weighting scheme.",
+        description="Calculated char equality score. Max value depends on string length & weighting.",
     )
 
 

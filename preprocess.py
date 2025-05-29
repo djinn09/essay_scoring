@@ -66,7 +66,8 @@ def remove_unbalanced_repetition(
     top_words_percentage: float = 0.4,
     frequency_boundary: float = 0.3,
 ) -> bool:
-    """Check if the cumulative frequency of the most common words (top percentage) is below a certain boundary, suggesting the answer is not overly repetitive.
+    """Check if the cumulative frequency of most common words (top percentage) is below a
+    certain boundary, suggesting the answer is not overly repetitive.
 
     Note: The logic for determining 'top' words based on `doc_fre % top_words_percentage`
     seems unusual and might not accurately capture the intended "top percentage of words".
@@ -374,4 +375,5 @@ def contains_sufficient_grammatical_structure(pos_tags_dict: Dict[str, str]) -> 
     print("DEBUG: Unique POS tags in sentence:", unique_tags_in_sentence)  # For debugging, can be removed.
 
     # Check if any of the required grammatical tags are present in the sentence's tags.
-    return any(tag in unique_tags_in_sentence for tag in required_grammatical_tags)  # None of the essential grammatical tags were found.
+    # If none are found, it implies the sentence might lack common grammatical structure.
+    return any(tag in unique_tags_in_sentence for tag in required_grammatical_tags)

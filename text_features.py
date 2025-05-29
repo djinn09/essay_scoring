@@ -69,6 +69,7 @@ import warnings
 from collections import defaultdict
 from typing import Any, Optional  # Added Union earlier, now just using specific types
 
+import nltk # Moved from bottom for E402
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field  # Pydantic imports
@@ -176,6 +177,7 @@ class SmithWatermanParams(BaseModel):
         ...,
         description="Tuple representing the (start_index, end_index) of the window in the second text (t2).",
     )
+    mismatch_score: float = Field(default=-1.0, description="Score for a mismatch during alignment.")
 
 
 class LexicalClusterFeature(BaseModel):
@@ -393,7 +395,8 @@ for model_cls in MODULE_MODELS:
 #                 # nsubj: nominal subject, dobj: direct object,
 #                 # nsubjpass: nominal subject (passive), auxpass: passive auxiliary (identifies passive)
 #                 # We could add more like 'pobj' for prepositional objects if needed.
-#                 if child.dep_ in ("nsubj", "dobj", "nsubjpass", "agent", "attr", "acomp", "xcomp"): # Added agent for passive, attr/acomp/xcomp for linking verbs/complements  # noqa: E501
+#                 if child.dep_ in ("nsubj", "dobj", "nsubjpass", "agent", "attr", "acomp", "xcomp"):
+#                      # Added agent for passive, attr/acomp/xcomp for linking verbs/complements
 #                      # Store the dependency relation and the argument's lemma
 #                      arguments.append((child.dep_, child.lemma_))
 
@@ -605,13 +608,15 @@ def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.
         # Convert word vectors to a dense array for `cosine_similarity`.
         # Note: Using .toarray() can be memory-intensive for very large vocabularies
         # as it creates a dense matrix. For extremely large datasets, alternative approaches
-        # like sparse cosine similarity calculations or further optimizations (e.g., feature selection,
-        # dimensionality reduction before this step) might be necessary if memory becomes a constraint.
+        # like sparse cosine similarity calculations or further optimizations
+        # (e.g., feature selection, dimensionality reduction before this step)
+        # might be necessary if memory becomes a constraint.
         word_vectors: np.ndarray = word_matrix.T.toarray()
     except MemoryError:
         logger.exception(
-            "MemoryError converting sparse matrix to dense for graph building. Vocabulary size: %s. "
-            "Consider using methods suitable for sparse matrices if memory is a constraint.",
+            "MemoryError converting sparse matrix to dense for graph building. "
+            "Vocabulary size: %s. Consider using methods suitable for sparse "
+            "matrices if memory is a constraint.",
             len(words),
         )
         # Fallback: return an empty graph or raise the error. Here, returning empty graph.
@@ -838,7 +843,7 @@ def smith_waterman_window(params: SmithWatermanParams) -> float:
             # `a1[i-1]` and `a2[j-1]` are the current tokens being compared.
             # Default to a mismatch_score (e.g., -1.0 or as defined in `sm`) if a word pair is not explicitly in `sm`.
             # This shouldn't happen if `sm` is built correctly from all unique words in t1 and t2.
-            match_val = sm.get(a1[i - 1], {}).get(a2[j - 1], config.mismatch_score if "config" in globals() else -1.0)
+            match_val = sm.get(a1[i - 1], {}).get(a2[j - 1], params.mismatch_score)
 
             # Calculate scores from three possible previous cells:
             # 1. Diagonal: Alignment of a1[i-1] and a2[j-1]
@@ -930,6 +935,7 @@ def compute_plagiarism_score_fast(
                     gap_penalty=config.gap_penalty,
                     win1=(w1_start, w1_end),
                     win2=(w2_start, w2_end),
+                    mismatch_score=config.mismatch_score,
                 )
                 # Calculate Smith-Waterman score for this specific pair of windows.
                 window_score = smith_waterman_window(smith_waterman_params)
@@ -1038,7 +1044,7 @@ def get_char_by_char_equality_optimized(s1_in: Optional[str], s2_in: Optional[st
     return CharEqualityScore(score=total_score)
 
 
-def create_semantic_graph_spacy(text: str, spacy_nlp_model: Any) -> Optional[nx.Graph]:  # noqa: ANN401 # type: ignore
+def create_semantic_graph_spacy(text: str, spacy_nlp_model: Any) -> Optional[nx.Graph]:  # noqa: ANN401
     """Creates a semantic graph from text using spaCy's dependency parse.
 
     Nodes in the graph represent tokens, identified by their index in the document.
@@ -1335,15 +1341,17 @@ def extract_lexical_features(
 # It's also missing context for `reference` and `generated` if not run as __main__.
 # Consider moving to an example script or integrating it if METEOR is a desired feature.
 # For now, keeping it as is from original, but noting its odd placement.
-import nltk
+# import nltk # Already moved to top
 
-nltk.download("wordnet", quiet=True)  # Added quiet=True to suppress console output during tests/runs
-nltk.download("omw-1.4", quiet=True)
+# The nltk.download calls originally here (around line 1338) are problematic for module-level execution.
+# They should ideally be handled by an explicit setup script or within the application's main entry point.
+# nltk.download("wordnet", quiet=True)
+# nltk.download("omw-1.4", quiet=True)
 
 # These lines will execute when the module is imported, which might not be intended.
 # reference_meteor_example = [["This", "is", "a", "reference", "summary"]]
 # generated_meteor_example = ["This", "is", "a", "generated", "summary"]
-# meteor_example_score = meteor_score(reference_meteor_example, generated_meteor_example)
+# meteor_example_score = meteor_score(reference_meteor_example, generated_meteor_example) # meteor_score not defined
 # print(f"METEOR Score (Example at import time): {meteor_example_score}") # This print will also occur at import.
 
 

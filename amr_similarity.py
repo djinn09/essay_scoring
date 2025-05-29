@@ -391,7 +391,7 @@ class AMRSimilarityCalculator:
     def calculate_amr_features(self, text1: str, text2: str) -> dict[str, Optional[float]]:
         """Calculate a set of similarity features based on AMR analysis of two texts.
 
-        This method first parses both input texts into AMR graphs. Then, it computes
+        Parse both input texts into AMR graphs. Then, compute
         various similarity scores based on these graphs, including Smatch, concept overlap,
         named entity overlap, negation presence, and root concept match.
 
@@ -448,7 +448,7 @@ class AMRSimilarityCalculator:
         return results
 
     def _calculate_smatch(self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]]) -> None:
-        """Calculates Smatch scores and updates the results dictionary."""
+        """Calculate Smatch scores and update the results dictionary."""
         try:
             precision, recall, f_score = compute_smatch([amr1_penman], [amr2_penman])
             results["smatch_fscore"] = f_score
@@ -461,7 +461,7 @@ class AMRSimilarityCalculator:
     def _calculate_concept_overlap(
         self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
     ) -> None:
-        """Calculates concept overlap and updates the results dictionary."""
+        """Calculate concept overlap and update the results dictionary."""
         try:
             concepts1 = self._get_graph_concepts(amr1_penman)
             concepts2 = self._get_graph_concepts(amr2_penman)
@@ -480,7 +480,7 @@ class AMRSimilarityCalculator:
     def _calculate_named_entity_overlap(
         self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
     ) -> None:
-        """Calculates named entity overlap and updates the results dictionary."""
+        """Calculate named entity overlap and update the results dictionary."""
         try:
             ne1 = self._get_named_entities(amr1_penman)
             ne2 = self._get_named_entities(amr2_penman)
@@ -499,7 +499,7 @@ class AMRSimilarityCalculator:
     def _calculate_negation_overlap(
         self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
     ) -> None:
-        """Calculates negation overlap and updates the results dictionary."""
+        """Calculate negation overlap and update the results dictionary."""
         try:
             neg1 = self._get_negations(amr1_penman)
             neg2 = self._get_negations(amr2_penman)

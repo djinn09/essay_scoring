@@ -64,11 +64,14 @@ from typing import TYPE_CHECKING, Any, Optional  # Import necessary types for an
 
 import gender_guesser.detector as gender
 import spacy
+from spacy.tokens import Doc
 
 if TYPE_CHECKING:
     from spacy.tokens import Token
 
 # --- Constants ---
+PROXIMITY_THRESHOLD = 0.05  # Used for candidate scoring
+SINGULAR_THEY_THRESHOLD = 0.70  # Used for singular 'they' scoring boost
 COLLECTIVE_NOUNS = {"team", "committee", "government", "group", "company", "staff", "jury", "class", "party"}
 REPORTING_VERBS = {
     "say",
@@ -153,38 +156,38 @@ def get_gender(token: Token) -> Optional[str]:
       5. Common neuter nouns
       6. Default to 'Unspecified'.
     """
+    gender_val = None
     # Normalize lemma and text
     lemma = token.lemma_.lower()
     text = token.text.strip().lower()
+
     # 1. Pronoun-based gender
     if lemma in PRONOUN_GENDER:
-        return PRONOUN_GENDER[lemma]
-
+        gender_val = PRONOUN_GENDER[lemma]
     # 2. SpaCy morphological gender
-    gender_feats = token.morph.get("Gender", [])  # Returns a list, e.g. ['Masc'] or []
-    if gender_feats:
-        return gender_feats[0] if gender_feats else None  # Return first element if list is not empty
-
-    # 3. Named entity static lookup
-    if token.ent_type_ == "PERSON":
-        # Static name hints
-        if text in NAME_GENDER:
-            return NAME_GENDER[text]
-        # 4. gender-guesser fallback
-        guess = DETECTOR.get_gender(text)
-        if guess in ("male", "mostly_male"):
-            return "Masc"
-        if guess in ("female", "mostly_female"):
-            return "Fem"
-        # PERSON but unknown -> unspecified
-        return "Unspecified"  # Or None, depending on desired behavior for ungendered PERSON
-
+    elif token.morph.get("Gender", []):
+        gender_feats = token.morph.get("Gender", [])
+        gender_val = gender_feats[0] if gender_feats else None
+    # 3. Named entity static lookup (PERSON)
+    elif token.ent_type_ == "PERSON":
+        if text in NAME_GENDER: # Static name hints
+            gender_val = NAME_GENDER[text]
+        else: # gender-guesser fallback
+            guess = DETECTOR.get_gender(text)
+            if guess in ("male", "mostly_male"):
+                gender_val = "Masc"
+            elif guess in ("female", "mostly_female"):
+                gender_val = "Fem"
+            else: # PERSON but unknown gender
+                gender_val = "Unspecified"
     # 5. Common neuter nouns
-    if token.pos_ == "NOUN" and lemma in NEUTER_NOUNS:
-        return "Neut"
-
+    elif token.pos_ == "NOUN" and lemma in NEUTER_NOUNS:
+        gender_val = "Neut"
     # 6. Default
-    return "Unspecified"  # Or None
+    else:
+        gender_val = "Unspecified"
+
+    return gender_val
 
 
 # Pronoun → number mapping
@@ -346,14 +349,14 @@ def find_subject(token: Token) -> Token | None:
             # Ensure the head of the compound still precedes the original token to avoid jumping too far.
             while core_subj.dep_ == "compound" and core_subj.head.i < token.i:
                 core_subj = core_subj.head
-            # Further refinement: If the core subject isn't a PERSON or PROPN,
-            # check its subtree for a PERSON entity that precedes the core_subj itself.
-            # This aims to find a person if the direct subject is more general (e.g., "His team" -> "His").
+            # Further refinement for non-PERSON/PROPN subjects
             if core_subj.ent_type_ != "PERSON" and core_subj.pos_ != "PROPN":
-                # Search within the subject's subtree for a PERSON entity appearing before the subject token.
-                person_in_subj = [t for t in core_subj.subtree if t.ent_type_ == "PERSON" and t.i < core_subj.i]
+                # Search for a PERSON entity in the subject's subtree preceding the subject itself
+                person_in_subj = [
+                    t for t in core_subj.subtree if t.ent_type_ == "PERSON" and t.i < core_subj.i
+                ]
                 if person_in_subj:
-                    return person_in_subj[-1]  # Return the last such PERSON found (closest).
+                    return person_in_subj[-1] # Return the last such PERSON found
             return core_subj
     return None  # No subject found.
 
@@ -406,35 +409,32 @@ def is_pleonastic_it(token: Token) -> bool:
 
     # Further checks if 'it' is a nominal subject (nsubj).
     if token.dep_ != "nsubj":
-        return False  # If 'it' is not a subject here, less likely to be pleonastic by these rules.
+        # If 'it' is not a subject here, less likely to be pleonastic by these rules.
+        return False
 
     verb = token.head  # The verb governed by 'it'.
-
+    pleonastic = False
     if verb.pos_ == "VERB":
-        if _check_weather_verbs(verb):
-            return True
-        if _check_time_attributes(verb):
-            return True
-        if _check_clausal_complements(verb):
-            return True
-
+        if _check_weather_verbs(verb) or \
+           _check_time_attributes(verb) or \
+           _check_clausal_complements(verb):
+            pleonastic = True
     # Rule 5: Auxiliary 'be' + time/numeric attribute or cleft constructions
     elif verb.lemma_ == "be" and verb.pos_ == "AUX":  # If 'it' is subject of an auxiliary 'be'.
-        if _check_time_attributes(verb):  # Re-use time attribute check
-            return True
-        if _check_cleft_construction(verb):
-            return True
+        if _check_time_attributes(verb) or \
+           _check_cleft_construction(verb): # Re-use time attribute check
+            pleonastic = True
 
-    return False
+    return pleonastic
 
 
 def _check_weather_verbs(verb: Token) -> bool:
-    """Checks if the verb is a weather verb."""
+    """Check if the verb is a weather verb."""
     return verb.lemma_ in {"rain", "snow", "hail", "thunder", "lighten"}
 
 
 def _check_time_attributes(verb: Token) -> bool:
-    """Checks for time-related attributes with 'be' verb."""
+    """Check for time-related attributes with 'be' verb."""
     if verb.lemma_ == "be":
         attr = next((c for c in verb.children if c.dep_ == "attr"), None)
         if attr:
@@ -453,14 +453,14 @@ def _check_time_attributes(verb: Token) -> bool:
 
 
 def _check_clausal_complements(verb: Token) -> bool:
-    """Checks for verbs of seeming/appearing with clausal complements."""
+    """Check for verbs of seeming/appearing with clausal complements."""
     return verb.lemma_ in {"seem", "appear", "happen", "matter", "turn out", "look", "sound"} and any(
         c.dep_ in {"ccomp", "csubj", "xcomp", "acomp", "advcl"} for c in verb.children
     )
 
 
 def _check_cleft_construction(verb: Token) -> bool:
-    """Checks for cleft constructions."""
+    """Check for cleft constructions."""
     attr = next((c for c in verb.children if c.dep_ == "attr"), None)
     if attr:
         relcl = next((c for c in verb.children if c.dep_ == "relcl" and c.head == attr), None)
@@ -582,13 +582,14 @@ def rule_based_coref_resolution_v4(
 
 def _resolve_pronoun(
     token: Token,
-    doc: Any,
+    doc: Doc,
+    *,
     start_search_token_idx: int,
     processed_mentions: set,
     similarity_threshold: float,
     use_similarity_fallback: bool,
 ) -> tuple[Optional[Token], float, str]:
-    """Resolves a pronoun token."""
+    """Resolve a pronoun token to its antecedent if possible."""
     antecedent = None
     confidence = 0.0
     rule = "N/A"
@@ -645,7 +646,7 @@ def _resolve_pronoun(
             agrees, _ = check_agreement(token, candidate)
             if not agrees:
                 continue
-            cand_score = 0.05
+            cand_score = PROXIMITY_THRESHOLD # Start with base proximity score
             cand_rule_detail = ""
             if candidate.ent_type_ == "PERSON":
                 cand_score = max(cand_score, 0.75)
@@ -661,7 +662,7 @@ def _resolve_pronoun(
             proximity_factor = max(0.1, 1.0 - (distance / 50.0))
             cand_score *= proximity_factor
             cand_score = min(cand_score, 1.0)
-            if cand_score > 0.05:
+            if cand_score > PROXIMITY_THRESHOLD:
                 potential_candidates.append(
                     {
                         "token": candidate,
@@ -693,8 +694,8 @@ def _resolve_pronoun(
                 elif token.lemma_ == "it" and candidate.ent_type_ and candidate.ent_type_ != "PERSON":
                     cand_score = max(cand_score, 0.65)
                     cand_rule_detail = "NER Non-PERSON ('it')"
-            if is_singular_they and cand_score < 0.70:
-                cand_score = max(cand_score, 0.75)
+            if is_singular_they and cand_score < SINGULAR_THEY_THRESHOLD:
+                cand_score = max(cand_score, 0.75) # Boost for singular they if not already high
                 cand_rule_detail = "Singular They Match"
             if candidate.dep_ in ("nsubj", "nsubjpass"):
                 subject_bonus = 0.15
@@ -725,7 +726,7 @@ def _resolve_pronoun(
                             cand_rule_detail = cand_rule_detail.strip().lstrip("+ ")
                 except UserWarning:
                     pass
-            if cand_score > 0.05:
+            if cand_score > PROXIMITY_THRESHOLD:
                 potential_candidates.append(
                     {
                         "token": candidate,
@@ -747,9 +748,9 @@ def _resolve_pronoun(
 
 
 def _resolve_proper_noun(
-    token: Token, doc: Any, start_search_token_idx: int, processed_mentions: set,
+    token: Token, doc: Doc, start_search_token_idx: int, processed_mentions: set,
 ) -> tuple[Optional[Token], float, str]:
-    """Resolves a proper noun token."""
+    """Resolve a proper noun token to its antecedent if possible."""
     antecedent = None
     confidence = 0.0
     rule = "N/A"
@@ -822,7 +823,7 @@ if __name__ == "__main__":
         "Possessive Its": "The company announced its profits.",  # its -> company
         "Quote Possessive": 'Mary said, "My car is blue."',  # My -> Mary
         # Smith -> John Smith (not Jane Smith)
-        "PN Partial Refined": ("Professor John Smith presented. Later, Smith answered questions. Jane Smith watched."),
+        "PN Partial Refined": ("Prof. John Smith presented. Later, Smith answered questions. Jane Smith watched."),
         # they->team, which->spirit?, their->team
         "Complex Sentence": "Although the team lost, they showed great spirit, which pleased their coach.",
         "Weather/Time It": "It is snowing and it is almost noon.",

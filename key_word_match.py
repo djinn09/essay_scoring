@@ -397,6 +397,7 @@ class TFIDFCalculator:
             "TFIDFCalculator initialized with lemmatization: %s, stopwords: %s, TF-IDF config: %s.",
             self.use_lemmatization,
             self.use_stopwords,
+            self.vectorizer.get_params(), # Or self.tfidf_config for a more concise Pydantic model view
         )
 
     def _build_tokenizer(self) -> Optional[Callable[[str], list[str]]]:
@@ -574,15 +575,18 @@ class BleuScorer:
         self.smoothing = smoothing_function or SmoothingFunction().method1  # Default NLTK smoothing
         logging.debug("BleuScorer initialized.")
 
+    @staticmethod
     @lru_cache(maxsize=1024)  # Cache preprocessed text based on its content
-    def _preprocess_bleu_text(self, text: str) -> tuple[str, ...]:
+    def _preprocess_bleu_text(
+        text: str, lemmatizer: Optional[WordNetLemmatizer], stop_words: frozenset[str],
+    ) -> tuple[str, ...]:
         """Preprocesses text for BLEU: tokenize, lemmatize (optional), filter stopwords."""
         tokens = tokenize_text(text)  # Base tokenization (cached)
-        if self.lemmatizer:
+        if lemmatizer:
             tokens = lemmatize_tokens(tokens)  # Lemmatize (cached)
         # BLEU conventionally might not remove stopwords or uses specific recipes.
         # Here, we apply the general stopword list for consistency.
-        return filter_stopwords(tokens, self.frozen_stop_words)  # Filter (cached)
+        return filter_stopwords(tokens, stop_words)  # Filter (cached)
 
     def _calculate_bleu(
         self,
@@ -619,8 +623,12 @@ class BleuScorer:
         if not hypothesis.strip() or not ref_list or not any(r.strip() for r in ref_list):
             return BleuResult(score=0.0, cumulative_ngram_scores=dict.fromkeys(range(1, max_n + 1), 0.0))
 
-        hyp_tokens = list(self._preprocess_bleu_text(hypothesis))
-        ref_tokens_list_processed = [list(self._preprocess_bleu_text(ref)) for ref in ref_list]
+        hyp_tokens = list(
+            BleuScorer._preprocess_bleu_text(hypothesis, self.lemmatizer, self.frozen_stop_words),
+        )
+        ref_tokens_list_processed = [
+            list(BleuScorer._preprocess_bleu_text(ref, self.lemmatizer, self.frozen_stop_words)) for ref in ref_list
+        ]
 
         # Filter out any reference lists that became empty after preprocessing
         ref_tokens_list_valid = [r_list for r_list in ref_tokens_list_processed if r_list]
