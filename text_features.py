@@ -533,7 +533,7 @@ def simple_tokenize(text: str) -> list[str]:
 
     """
     if not isinstance(text, str):
-        logger.warning("simple_tokenize received non-string input: %s. Returning empty list.", type(text))
+        logger.warning("simple received non-string input: %s. Returning empty list.", type(text))
         return []
     text_lower = text.lower()
     # Remove punctuation by replacing non-alphanumeric characters (excluding whitespace) with an empty string.
@@ -805,7 +805,7 @@ def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[i
     # Validate inputs: k must be positive, tokens list must not be empty and must be at least k tokens long.
     if k <= 0 or not tokens or len(tokens) < k:
         logger.debug(
-            "Invalid input for build_ngram_index (k=%s, len(tokens)=%s). Returning empty index.",
+            "Invalid input for build_ngram_index (k=%s, len(words)=%s). Returning empty index.",
             k,
             len(tokens),
         )
