@@ -1,4 +1,5 @@
-"""Text Preprocessing and Evaluation Utilities.
+"""
+Text Preprocessing and Evaluation Utilities.
 
 This module provides a collection of functions for cleaning, evaluating, and
 manipulating text strings, often used for assessing the quality or validity
@@ -12,7 +13,6 @@ import math
 import re
 import string
 from collections import Counter
-from typing import Dict  # For type hinting
 
 # Attempt to import NLTK components; these are essential for some functions.
 # If NLTK or its data is not available, relevant functions might degrade gracefully or error.
@@ -38,7 +38,8 @@ else:
 
 
 def eval_based_on_length(answer: str, min_length: int = 8) -> bool:
-    """Check if the number of words in a given string exceeds a minimum length.
+    """
+    Check if the number of words in a given string exceeds a minimum length.
 
     Args:
         answer (str): The candidate answer string.
@@ -66,11 +67,12 @@ def remove_unbalanced_repetition(
     top_words_percentage: float = 0.4,
     frequency_boundary: float = 0.3,
 ) -> bool:
-    """Check if the cumulative frequency of most common words is below a boundary.
+    """
+    Check if the cumulative frequency of most common words is below a boundary.
 
     This suggests the answer is not overly repetitive.
 
-    Note: The logic for determining 'top' words based on `doc_fre % top_words_percentage`
+    Note: The logic for determining 'top' words based on `doc_free % top_words_percentage`
     seems unusual and might not accurately capture the intended "top percentage of words".
     It's documented here as implemented. A more standard approach would be to sort
     word frequencies and sum up frequencies of words constituting the top X percent.
@@ -139,7 +141,8 @@ def remove_unbalanced_repetition(
 
 
 def eval_based_on_repetition(answer: str, percentage_threshold: float = 0.6) -> bool:
-    """Check if any single keyword's repetition exceeds a given percentage of total words.
+    """
+    Check if any single keyword's repetition exceeds a given percentage of total words.
 
     If a word's frequency relative to the total number of words is higher than
     `percentage_threshold`, the function considers the answer improper and returns False.
@@ -177,7 +180,8 @@ def eval_based_on_repetition(answer: str, percentage_threshold: float = 0.6) -> 
 
 
 def remove_punctuation(text: str) -> str:
-    """Remove all punctuation from a text string using a pre-compiled translation table.
+    """
+    Remove all punctuation from a text string using a pre-compiled translation table.
 
     Args:
         text (str): The input text string.
@@ -192,7 +196,8 @@ def remove_punctuation(text: str) -> str:
 
 
 def is_answer_exact_match_to_question(answer: str, question: str) -> bool:
-    """Check if the candidate answer is an exact match to the question string.
+    """
+    Check if the candidate answer is an exact match to the question string.
 
     Args:
         answer (str): The candidate answer string.
@@ -210,7 +215,8 @@ def is_answer_exact_match_to_question(answer: str, question: str) -> bool:
 
 
 def get_first_unique_word_sequence(text: str) -> str:
-    """Find the first sequence of unique words in a string until a word repeats.
+    """
+    Find the first sequence of unique words in a string until a word repeats.
 
     Note: The original function name `find_first_non_repeating_sentence` was misleading
     as it operates on words, not sentences, and finds a sequence of *unique* words,
@@ -237,7 +243,9 @@ def get_first_unique_word_sequence(text: str) -> str:
 
 
 def check_for_repeating_sequences(answer: str) -> bool:
-    """Check if the initial unique word sequence (from `get_first_unique_word_sequence`)
+    """
+    Check if the initial unique word sequence (from `get_first_unique_word_sequence`).
+
     repeats more than once in the answer.
 
     Args:
@@ -267,7 +275,8 @@ def check_for_repeating_sequences(answer: str) -> bool:
 
 
 def remove_question_from_answer_ends(answer: str, question: str) -> str:
-    """Remove the `question` string from the beginning or end of the `answer` string, if present.
+    """
+    Remove the `question` string from the beginning or end of the `answer` string, if present.
 
     Note: This uses `strip()`, which only removes leading/trailing occurrences.
     It does not remove the question if it's embedded within the answer.
@@ -305,7 +314,8 @@ def remove_question_from_answer_ends(answer: str, question: str) -> str:
 
 
 def get_unique_words_from_string(sentence: str) -> set[str]:
-    """Extract a set of unique, non-stopword words from a sentence.
+    """
+    Extract a set of unique, non-stopword words from a sentence.
 
     The sentence is lowercased, punctuation is removed, tokenized, and stopwords
     are filtered out.
@@ -353,15 +363,17 @@ def get_unique_words_from_string(sentence: str) -> set[str]:
     return {word for word in tokens if word not in current_stopwords and word.isalnum()}
 
 
-def contains_sufficient_grammatical_structure(pos_tags_dict: Dict[str, str]) -> bool:
-    """Check if a sentence, represented by its Part-of-Speech (POS) tags, contains
+def contains_sufficient_grammatical_structure(pos_tags_dict: dict[str, str]) -> bool:
+    """
+    Check if a sentence, represented by its Part-of-Speech (POS) tags, contains.
+
     essential grammatical components (like auxiliaries or determiners).
 
     This can be used to heuristically identify sentences that might be composed
     predominantly of keywords rather than forming full grammatical structures.
 
     Args:
-        pos_tags_dict (Dict[str, str]): A dictionary where keys are words and values
+        pos_tags_dict (dict[str, str]): A dictionary where keys are words and values
                                      are their POS tags. (Note: a list of tag strings
                                      might be more direct if word mapping isn't needed).
 

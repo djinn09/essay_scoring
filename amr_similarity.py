@@ -1,4 +1,5 @@
-"""Module for calculating text similarity scores using Abstract Meaning Representation (AMR).
+"""
+Module for calculating text similarity scores using Abstract Meaning Representation (AMR).
 
 AMR is a semantic representation language that encodes the meaning of a sentence
 as a rooted, directed, acyclic graph. This module provides the `AMRSimilarityCalculator`
@@ -53,7 +54,7 @@ logger = logging.getLogger(__name__)
 # Attempt to load the model once when the module is imported.
 # This makes it available globally within this module.
 # Users of the AMRSimilarityCalculator class will pass this pre-loaded model.
-# TODO(Jules): (Jules, #1) Consider making the model path configurable via environment variable or a config file
+# Consider making the model path configurable via environment variable or a config file
 # for more flexibility, instead of hardcoding.
 # For now, this path is a placeholder and would need to be valid in the execution environment.
 MAX_TEXT_SAMPLE_LENGTH = 100
@@ -82,7 +83,8 @@ NEGATION_PLACEHOLDER = "HAS_NEGATION"
 
 
 class AMRSimilarityCalculator:
-    """Calculates similarity features based on Abstract Meaning Representation (AMR).
+    """
+    Calculates similarity features based on Abstract Meaning Representation (AMR).
 
     AMR provides a way to represent the meaning of a sentence as a graph.
     This class uses `amrlib` for parsing text to AMR and `penman` for graph manipulation.
@@ -103,12 +105,13 @@ class AMRSimilarityCalculator:
     Future features could include similarity based on frames, semantic roles, reentrancies, etc.
     """
 
-    def __init__(self, stog_model: StoG) -> None:  # TODO(Jules): (Jules, #1) Replace Any with specific amrlib model type
-        """Initialize AMRSimilarityCalculator with a pre-loaded `amrlib` StoG model.
+    def __init__(self, stog_model: StoG) -> None:
+        """
+        Initialize AMRSimilarityCalculator with a pre-loaded `amrlib` StoG model.
 
         Args:
             stog_model: A pre-loaded `amrlib` Stack-Transformer (StoG) parsing model object.
-                        This model is used to parse text into AMR graphs.
+                This model is used to parse text into AMR graphs.
 
         Raises:
             ValueError: If `stog_model` is not provided (is None).
@@ -124,7 +127,8 @@ class AMRSimilarityCalculator:
     # This simplifies the class and makes model management more explicit for the user.
 
     def _parse_amr(self, text: str) -> Optional[str]:
-        """Parse input text into an AMR graph string in PENMAN format.
+        """
+        Parse input text into an AMR graph string in PENMAN format.
 
         This method handles basic sentence splitting (splitting by periods).
         For more complex texts, a dedicated sentence segmenter might be preferable
@@ -172,7 +176,8 @@ class AMRSimilarityCalculator:
             return None
 
     def _get_graph_concepts(self, penman_graph_str: str) -> set[str]:
-        """Extract concepts (instance labels and constants) from an AMR graph string.
+        """
+        Extract concepts (instance labels and constants) from an AMR graph string.
 
         Concepts include:
         1.  Instance labels (e.g., 'dog' from `(d / dog)`).
@@ -235,7 +240,8 @@ class AMRSimilarityCalculator:
         return concepts
 
     def _get_named_entities(self, penman_graph_str: str) -> set[str]:
-        """Extract named entities from an AMR graph string.
+        """
+        Extract named entities from an AMR graph string.
 
         Named entities are typically identified by `:wiki` links (pointing to Wikipedia
         titles, often represented as string constants like `"-"` if not linked) or
@@ -299,7 +305,8 @@ class AMRSimilarityCalculator:
         return nes
 
     def _get_negations(self, penman_graph_str: str) -> set[str]:
-        """Detect negations in an AMR graph string.
+        """
+        Detect negations in an AMR graph string.
 
         This method currently uses a simplified approach, checking for the literal
         string ':polarity -' in the PENMAN graph, and returns a placeholder concept if found.
@@ -347,7 +354,8 @@ class AMRSimilarityCalculator:
         return negated_concepts
 
     def _get_root_concept(self, penman_graph_str: str) -> Optional[str]:
-        """Extract the concept of the root node from an AMR graph string.
+        """
+        Extract the concept of the root node from an AMR graph string.
 
         The root of the graph is indicated by `graph.top` in the `penman` library.
         This method finds the instance declaration corresponding to this top variable.
@@ -389,7 +397,8 @@ class AMRSimilarityCalculator:
             return None
 
     def calculate_amr_features(self, text1: str, text2: str) -> dict[str, Optional[float]]:
-        """Calculate a set of similarity features based on AMR analysis of two texts.
+        """
+        Calculate a set of similarity features based on AMR analysis of two texts.
 
         Parse both input texts into AMR graphs. Then, compute
         various similarity scores based on these graphs, including Smatch, concept overlap,
@@ -459,7 +468,10 @@ class AMRSimilarityCalculator:
             logger.exception("Smatch calculation failed.")
 
     def _calculate_concept_overlap(
-        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+        self,
+        amr1_penman: str,
+        amr2_penman: str,
+        results: dict[str, Optional[float]],
     ) -> None:
         """Calculate concept overlap and update the results dictionary."""
         try:
@@ -478,7 +490,10 @@ class AMRSimilarityCalculator:
             logger.exception("Concept similarity calculation failed.")
 
     def _calculate_named_entity_overlap(
-        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+        self,
+        amr1_penman: str,
+        amr2_penman: str,
+        results: dict[str, Optional[float]],
     ) -> None:
         """Calculate named entity overlap and update the results dictionary."""
         try:
@@ -497,7 +512,10 @@ class AMRSimilarityCalculator:
             logger.exception("Named entity similarity calculation failed.")
 
     def _calculate_negation_overlap(
-        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+        self,
+        amr1_penman: str,
+        amr2_penman: str,
+        results: dict[str, Optional[float]],
     ) -> None:
         """Calculate negation overlap and update the results dictionary."""
         try:
@@ -517,7 +535,10 @@ class AMRSimilarityCalculator:
             logger.exception("Negation similarity calculation failed.")
 
     def _calculate_root_similarity(
-        self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]],
+        self,
+        amr1_penman: str,
+        amr2_penman: str,
+        results: dict[str, Optional[float]],
     ) -> None:
         """Calculate root similarity and update the results dictionary."""
         try:

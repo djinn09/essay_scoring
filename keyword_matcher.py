@@ -1,4 +1,5 @@
-"""Module for matching keywords from one paragraph to another and scoring.
+"""
+Module for matching keywords from one paragraph to another and scoring.
 
 Provides a KeywordMatcher class with configurable preprocessing and
 keyword extraction methods (including POS tagging). Calculates two scores:
@@ -73,7 +74,8 @@ BAD_VOCAB_COSINE = 0.1
 
 
 class KeywordMatcher:
-    """Matches keywords from paragraph A in paragraph B and provides scores.
+    """
+    Matches keywords from paragraph A in paragraph B and provides scores.
 
     Calculates two primary scores:
     1.  **Keyword Coverage**: The proportion of unique keywords extracted from a primary
@@ -97,7 +99,8 @@ class KeywordMatcher:
         self,
         config: Optional[KeywordMatcherConfig] = None,
     ) -> None:
-        """Initialize the KeywordMatcher with specified or default configuration.
+        """
+        Initialize the KeywordMatcher with specified or default configuration.
 
         Args:
             config (Optional[KeywordMatcherConfig]): Configuration settings for the matcher.
@@ -174,7 +177,8 @@ class KeywordMatcher:
     @staticmethod
     @lru_cache(maxsize=128)  # Cache results for previously seen texts.
     def _preprocess_text(text: str, stop_words_set: frozenset[str]) -> list[str]:
-        """Perform basic preprocessing on a text string.
+        """
+        Perform basic preprocessing on a text string.
 
         Steps:
         1. Converts text to lowercase.
@@ -216,9 +220,13 @@ class KeywordMatcher:
     @staticmethod
     @lru_cache(maxsize=128)  # Cache results for previously seen token tuples.
     def _normalize_tokens(
-        tokens: tuple[str, ...], *, use_lemmatization: bool, lemmatizer: Optional[WordNetLemmatizer],
+        tokens: tuple[str, ...],
+        *,
+        use_lemmatization: bool,
+        lemmatizer: Optional[WordNetLemmatizer],
     ) -> tuple[str, ...]:
-        """Normalize a tuple of tokens, primarily by lemmatization if enabled and available.
+        """
+        Normalize a tuple of tokens, primarily by lemmatization if enabled and available.
 
         Args:
             tokens (tuple[str, ...]): A tuple of string tokens.
@@ -251,10 +259,11 @@ class KeywordMatcher:
     @staticmethod
     @lru_cache(maxsize=128)  # Cache results for previously seen token tuples.
     def _get_pos_tags(tokens: tuple[str, ...]) -> list[tuple[str, str]]:
-        """Perform Part-of-Speech (POS) tagging on a tuple of tokens.
+        """
+        Perform Part-of-Speech (POS) tagging on a tuple of tokens.
 
         Args:
-            tokens (tuple[str, ...]): A tuple of string tokens.
+            tokens (tuple[str, ...): A tuple of string tokens.
 
         Returns:
             list[tuple[str, str]]: A list of (token, POS_tag) tuples. Returns an empty list
@@ -280,7 +289,8 @@ class KeywordMatcher:
             return []
 
     def _extract_keywords_from_a(self, paragraph_a: str) -> set[str]:
-        """Extract a set of unique keywords from Paragraph A based on the matcher's configuration.
+        """
+        Extract a set of unique keywords from Paragraph A based on the matcher's configuration.
 
         The process involves:
         1. Basic preprocessing (`KeywordMatcher._preprocess_text`).
@@ -323,7 +333,9 @@ class KeywordMatcher:
                         # Step 3 (for POS path): Normalize (lemmatize) the POS-filtered tokens.
                         keywords = set(
                             KeywordMatcher._normalize_tokens(
-                                tuple(pos_filtered_tokens), use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
+                                tuple(pos_filtered_tokens),
+                                use_lemmatization=self.effective_use_lemmatization,
+                                lemmatizer=_GLOBAL_LEMMATIZER,
                             ),
                         )
                     else:
@@ -334,7 +346,9 @@ class KeywordMatcher:
             # Step 3 (for non-POS path): Directly normalize (lemmatize) the preprocessed tokens.
             keywords = set(
                 KeywordMatcher._normalize_tokens(
-                    processed_tokens_tuple, use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
+                    processed_tokens_tuple,
+                    use_lemmatization=self.effective_use_lemmatization,
+                    lemmatizer=_GLOBAL_LEMMATIZER,
                 ),
             )
 
@@ -346,7 +360,8 @@ class KeywordMatcher:
         return keywords
 
     def find_matches_and_score(self, paragraph_a: str, paragraph_b: str) -> MatcherScores:
-        """Calculate keyword coverage and vocabulary cosine similarity between two paragraphs.
+        """
+        Calculate keyword coverage and vocabulary cosine similarity between two paragraphs.
 
         Args:
             paragraph_a (str): The primary text from which keywords are extracted (source).
@@ -404,7 +419,8 @@ class KeywordMatcher:
         )
 
     def _calculate_vocab_cosine(self, paragraph_a: str, paragraph_b: str) -> float:
-        """Calculate the cosine similarity between the vocabularies of two paragraphs.
+        """
+        Calculate the cosine similarity between the vocabularies of two paragraphs.
 
         Vocabularies are derived from preprocessed tokens (lowercase, no punctuation, no stopwords).
         Similarity is based on binary vectors representing word presence in each paragraph's vocabulary.
@@ -459,7 +475,8 @@ class KeywordMatcher:
         keywords_a_set: set[str],  # Pre-extracted and normalized keywords from Paragraph A.
         paragraph_b: str,  # Raw text of Paragraph B.
     ) -> dict[str, Any]:
-        """Calculate keyword coverage by checking how many keywords from Paragraph A are in Paragraph B.
+        """
+        Calculate keyword coverage by checking how many keywords from Paragraph A are in Paragraph B.
 
         Args:
             keywords_a_set (set[str]): A set of unique, normalized keywords extracted from Paragraph A.
@@ -482,7 +499,9 @@ class KeywordMatcher:
         # Normalize (lemmatize if enabled) tokens of Paragraph B to match normalization of keywords_a_set.
         normalized_tokens_b_set = set(
             KeywordMatcher._normalize_tokens(
-                tuple(processed_tokens_b_list), use_lemmatization=self.effective_use_lemmatization, lemmatizer=_GLOBAL_LEMMATIZER,
+                tuple(processed_tokens_b_list),
+                use_lemmatization=self.effective_use_lemmatization,
+                lemmatizer=_GLOBAL_LEMMATIZER,
             ),
         )
 
@@ -519,7 +538,7 @@ if __name__ == "__main__":
             rich_console_available = True
         except ImportError:
             separator = lambda: print("-" * 80)
-        logger.info("Keyword Matching Example [bold green](Rich logging)[/bold green]") # Shortened
+        logger.info("Keyword Matching Example [bold green](Rich logging)[/bold green]")  # Shortened
     else:
         logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         separator = lambda: print("-" * 80)
@@ -548,7 +567,7 @@ if __name__ == "__main__":
 
         cov_score = scores.keyword_coverage_score
         cov_color = "green" if cov_score > GOOD_KEYWORD_COVERAGE else "yellow" if cov_score > 0 else "red"
-        logger.info(f"  Keyword Coverage: [{cov_color}]{cov_score:.4f}[/{cov_color}]") # Shortened
+        logger.info(f"  Keyword Coverage: [{cov_color}]{cov_score:.4f}[/{cov_color}]")  # Shortened
 
         cos_score = scores.vocabulary_cosine_similarity
         cos_color = "green" if cos_score > GOOD_VOCAB_COSINE else "yellow" if cos_score > BAD_VOCAB_COSINE else "red"

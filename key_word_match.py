@@ -1,4 +1,5 @@
-"""Provides comprehensive text similarity calculation utilities.
+"""
+Provides comprehensive text similarity calculation utilities.
 
 This module offers a wide array of text similarity and distance metrics,
 including:
@@ -113,7 +114,8 @@ _NLTK_DATA_DOWNLOADED = dict.fromkeys(_NLTK_RESOURCES, False)
 
 
 def _ensure_nltk_data(resource_name: str, download_dir: Optional[str] = None) -> bool:
-    """Check if a given NLTK resource is available and downloads it if not.
+    """
+    Check if a given NLTK resource is available and downloads it if not.
 
     Uses a module-level dictionary `_NLTK_DATA_DOWNLOADED` to track downloaded
     resources within the current session to avoid redundant checks or download attempts.
@@ -166,7 +168,8 @@ def _ensure_nltk_data(resource_name: str, download_dir: Optional[str] = None) ->
 # --- Preprocessing Setup ---
 @lru_cache(maxsize=1)  # Cache the result as stopwords list doesn't change often
 def get_default_stopwords() -> set[str]:
-    """Lazily loads and returns the default set of English stopwords from NLTK.
+    """
+    Lazily loads and returns the default set of English stopwords from NLTK.
 
     Ensures the 'stopwords' resource is downloaded if necessary.
     Returns an empty set if NLTK data cannot be loaded.
@@ -176,7 +179,8 @@ def get_default_stopwords() -> set[str]:
 
 @lru_cache(maxsize=1)  # Cache the lemmatizer instance
 def get_default_lemmatizer() -> WordNetLemmatizer:
-    """Lazily loads and returns a WordNetLemmatizer instance.
+    """
+    Lazily loads and returns a WordNetLemmatizer instance.
 
     Ensures 'wordnet' and 'omw-1.4' NLTK resources are downloaded.
     Warns if data is missing, as lemmatization quality will be affected.
@@ -207,7 +211,8 @@ REMOVE_PUNCTUATION_MAP = str.maketrans("", "", string.punctuation)
 
 @lru_cache(maxsize=1024)  # Cache results of preprocessing for efficiency
 def preprocess_text_base(text: str) -> str:
-    """Text preprocessing, convert to lowercase and remove punctuation.
+    """
+    Text preprocessing, convert to lowercase and remove punctuation.
 
     Args:
         text: The input string.
@@ -223,7 +228,8 @@ def preprocess_text_base(text: str) -> str:
 
 @lru_cache(maxsize=1024)  # Cache tokenization results
 def tokenize_text(text: str) -> tuple[str, ...]:
-    """Tokenize text using NLTK's word_tokenize after basic preprocessing.
+    """
+    Tokenize text using NLTK's word_tokenize after basic preprocessing.
 
     Ensures 'punkt' NLTK resource is available. Falls back to simple split on error.
 
@@ -255,7 +261,8 @@ def tokenize_text(text: str) -> tuple[str, ...]:
 
 @lru_cache(maxsize=1024)  # Cache lemmatization results
 def lemmatize_tokens(tokens: tuple[str, ...]) -> tuple[str, ...]:
-    """Lemmatize a tuple of tokens using the default WordNetLemmatizer.
+    """
+    Lemmatize a tuple of tokens using the default WordNetLemmatizer.
 
     Returns original tokens if lemmatization fails (e.g., missing NLTK data).
 
@@ -282,7 +289,8 @@ def lemmatize_tokens(tokens: tuple[str, ...]) -> tuple[str, ...]:
 
 @lru_cache(maxsize=1024)  # Cache stemming results
 def stem_tokens(tokens: tuple[str, ...]) -> tuple[str, ...]:
-    """Stems a tuple of tokens using the default PorterStemmer.
+    """
+    Stems a tuple of tokens using the default PorterStemmer.
 
     Args:
         tokens: A tuple of string tokens.
@@ -297,7 +305,8 @@ def stem_tokens(tokens: tuple[str, ...]) -> tuple[str, ...]:
 
 @lru_cache(maxsize=1024)  # Cache stopword filtering results
 def filter_stopwords(tokens: tuple[str, ...], stop_words: Optional[frozenset[str]] = None) -> tuple[str, ...]:
-    """Filter stopwords from a tuple of tokens. Also filters out non-alphanumeric tokens.
+    """
+    Filter stopwords from a tuple of tokens. Also filters out non-alphanumeric tokens.
 
     Args:
         tokens: A tuple of string tokens.
@@ -344,7 +353,8 @@ class BleuResult(BaseModel):
 
 # --- TFIDFCalculator Class ---
 class TFIDFCalculator:
-    """Computes TF-IDF vectors and derived similarity/distance metrics.
+    """
+    Computes TF-IDF vectors and derived similarity/distance metrics.
 
     Uses a configurable TfidfVectorizer from scikit-learn.
     """
@@ -358,7 +368,8 @@ class TFIDFCalculator:
         tfidf_config: TfidfConfig,  # Expects a Pydantic config model
         **tfidf_kwargs: Any,  # For any other TfidfVectorizer params  # noqa: ANN401
     ) -> None:
-        """Initialize the TFIDFCalculator with specified settings.
+        """
+        Initialize the TFIDFCalculator with specified settings.
 
         Args:
             use_lemmatization (bool): If True, applies lemmatization during tokenization.
@@ -397,11 +408,12 @@ class TFIDFCalculator:
             "TFIDFCalculator initialized with lemmatization: %s, stopwords: %s, TF-IDF config: %s.",
             self.use_lemmatization,
             self.use_stopwords,
-            self.vectorizer.get_params(), # Or self.tfidf_config for a more concise Pydantic model view
+            self.vectorizer.get_params(),  # Or self.tfidf_config for a more concise Pydantic model view
         )
 
     def _build_tokenizer(self) -> Optional[Callable[[str], list[str]]]:
-        """Build a custom tokenizer function if lemmatization or custom stopword handling is enabled.
+        """
+        Build a custom tokenizer function if lemmatization or custom stopword handling is enabled.
 
         If not, returns None, letting TfidfVectorizer use its internal tokenization.
         """
@@ -425,7 +437,8 @@ class TFIDFCalculator:
         return tokenizer_func
 
     def fit_transform(self, texts: Sequence[str]) -> csr_matrix:
-        """Fits the TfidfVectorizer to the provided texts and transforms them into TF-IDF matrix.
+        """
+        Fits the TfidfVectorizer to the provided texts and transforms them into TF-IDF matrix.
 
         Returns a Compressed Sparse Row (CSR) matrix.
         """
@@ -439,7 +452,8 @@ class TFIDFCalculator:
             return csr_matrix((len(texts), 0), dtype=float)
 
     def calculate_metrics_pairwise(self, text1: str, text2: str) -> dict[str, Optional[float]]:
-        """Calculate TF-IDF based similarity and distance metrics for a single pair of texts.
+        """
+        Calculate TF-IDF based similarity and distance metrics for a single pair of texts.
 
         This method fits the TF-IDF vectorizer specifically to the given pair of texts
         and then computes various metrics. It handles cases where no features are
@@ -533,7 +547,8 @@ class TFIDFCalculator:
 
         except Exception as e:  # Catch any other error during TF-IDF metric calculation.
             logging.debug(
-                f"Error calculating TF-IDF metrics for '{text1[:50]}...' vs '{text2[:50]}...': {e}", exc_info=True,
+                f"Error calculating TF-IDF metrics for '{text1[:50]}...' vs '{text2[:50]}...': {e}",
+                exc_info=True,
             )
             # Ensure all TF-IDF metric keys are present in the output, defaulting to None on error.
             for k_tfidf in [
@@ -550,7 +565,8 @@ class TFIDFCalculator:
 
 # --- BleuScorer Class ---
 class BleuScorer:
-    """Computes BLEU (Bilingual Evaluation Understudy) score, adapted for similarity.
+    """
+    Computes BLEU (Bilingual Evaluation Understudy) score, adapted for similarity.
 
     Uses NLTK's sentence_bleu. Allows custom preprocessing.
     """
@@ -561,7 +577,8 @@ class BleuScorer:
         lemmatizer: Optional[WordNetLemmatizer],  # Can be None
         smoothing_function: Optional[Callable],  # e.g., SmoothingFunction().method1
     ) -> None:
-        """Initialize the BleuScorer with specified preprocessing settings.
+        """
+        Initialize the BleuScorer with specified preprocessing settings.
 
         Args:
             stop_words (set[str]): A set of stop words to exclude during preprocessing.
@@ -578,7 +595,9 @@ class BleuScorer:
     @staticmethod
     @lru_cache(maxsize=1024)  # Cache preprocessed text based on its content
     def _preprocess_bleu_text(
-        text: str, lemmatizer: Optional[WordNetLemmatizer], stop_words: frozenset[str],
+        text: str,
+        lemmatizer: Optional[WordNetLemmatizer],
+        stop_words: frozenset[str],
     ) -> tuple[str, ...]:
         """Preprocesses text for BLEU: tokenize, lemmatize (optional), filter stopwords."""
         tokens = tokenize_text(text)  # Base tokenization (cached)
@@ -614,7 +633,8 @@ class BleuScorer:
             return 0.0
 
     def score_all_ngrams(self, references: Union[str, Sequence[str]], hypothesis: str, max_n: int = 4) -> BleuResult:
-        """Compute cumulative BLEU scores from BLEU-1 to BLEU-max_n.
+        """
+        Compute cumulative BLEU scores from BLEU-1 to BLEU-max_n.
 
         The main 'score' in the returned BleuResult is typically the BLEU-max_n score.
         """
@@ -652,7 +672,8 @@ class BleuScorer:
 
 # --- BM25 Calculation Wrapper ---
 def calculate_bm25(reference: str, hypothesis: str) -> Optional[float]:
-    """Calculate BM25 relevance score between a reference (document) and a hypothesis (query).
+    """
+    Calculate BM25 relevance score between a reference (document) and a hypothesis (query).
 
     Returns None if the rank_bm25 library is unavailable or an error occurs.
     """
@@ -679,14 +700,16 @@ def calculate_bm25(reference: str, hypothesis: str) -> Optional[float]:
 
 
 class SimilarityCalculator:
-    """Orchestrates the calculation of a comprehensive set of text similarity metrics.
+    """
+    Orchestrates the calculation of a comprehensive set of text similarity metrics.
 
     Initializes and uses specialized calculators (TFIDFCalculator, BleuScorer) and
     various direct similarity functions. Supports parallel processing for multiple pairs.
     """
 
     def __init__(self, config: Optional[SimilarityCalculatorConfig] = None) -> None:
-        """Initialize a SimilarityCalculator instance with the provided configuration.
+        """
+        Initialize a SimilarityCalculator instance with the provided configuration.
 
         Args:
             config (Optional[SimilarityCalculatorConfig]): The configuration object to use.
@@ -742,7 +765,8 @@ class SimilarityCalculator:
         logging.debug("SimilarityCalculator initialized successfully with config: %s", cfg.model_dump_json())
 
     def calculate_single_pair(self, text1: str, text2: str) -> SimilarityMetrics:
-        """Calculate all configured similarity metrics for a single pair of texts.
+        """
+        Calculate all configured similarity metrics for a single pair of texts.
 
         Args:
             text1: The first text string.
@@ -833,7 +857,8 @@ class SimilarityCalculator:
         text_pairs: Iterable[tuple[str, str]],
         max_workers: Optional[int] = None,
     ) -> list[SimilarityMetrics]:
-        """Calculate similarity metrics for multiple text pairs in parallel using ProcessPoolExecutor.
+        """
+        Calculate similarity metrics for multiple text pairs in parallel using ProcessPoolExecutor.
 
         Args:
             text_pairs: An iterable of (text1, text2) tuples.
@@ -910,7 +935,8 @@ class SimilarityCalculator:
 # --- Worker Function for Parallel Execution ---
 # This function must be defined at the top level of the module to be picklable by multiprocessing.
 def _worker_calculate_single_pair(config_dict: dict[str, Any], text1: str, text2: str) -> SimilarityMetrics:
-    """Worker function executed by each process in the ProcessPoolExecutor.
+    """
+    Worker function executed by each process in the ProcessPoolExecutor.
 
     It re-initializes a SimilarityCalculator using the provided configuration dictionary
     and calculates metrics for a single text pair.

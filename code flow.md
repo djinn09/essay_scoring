@@ -69,7 +69,7 @@ This document summarizes the code flow, class/method execution, and module respo
 - **`config.py`**: Defines Pydantic models for all configuration (app, semantic, spacy, etc.).
   - `get_settings()` loads settings from YAML, .env, and environment variables.
 - **`settings.py`**: Loads settings, initializes global logger, and semantic model.
-- **`logger_utill.py`**: Sets up logging (optionally with rich output).
+- **`logger_utils.py`**: Sets up logging (optionally with rich output).
 
 ### j. **Data Models** (`app_types.py`)
 - Pydantic models for all major data structures (inputs, outputs, configs, feature sets).
@@ -115,7 +115,7 @@ This document summarizes the code flow, class/method execution, and module respo
 | coreference.py        | rule_based_coref_resolution_v4        | Rule-based coreference resolution                |
 | preprocess.py         | (various)                             | Text preprocessing utilities                     |
 | config.py/settings.py | get_settings, settings                | Configuration and global settings                |
-| logger_utill.py       | setup_global_logger                   | Logging setup                                    |
+| logger_utils.py       | setup_global_logger                   | Logging setup                                    |
 | app_types.py          | (Pydantic models)                     | Data models for all modules                      |
 
 ---

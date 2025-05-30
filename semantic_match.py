@@ -1,4 +1,5 @@
-"""Provides semantic similarity calculations using Sentence Transformers.
+"""
+Provides semantic similarity calculations using Sentence Transformers.
 
 This module offers the `SemanticCosineSimilarity` class to compute various
 similarity and distance metrics (Cosine Similarity, Euclidean Distance, Manhattan Distance)
@@ -74,7 +75,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)  # Module-specific logger
 
 # --- Configuration for Similarity Score Interpretation (used in example) ---
-DEFAULT_DISTANCE_THRESHOLD = 0.5 # For example usage, to colorize distance scores
+DEFAULT_DISTANCE_THRESHOLD = 0.5  # For example usage, to colorize distance scores
 GOOD_SIMILARITY_SCORE = float(os.getenv("GOOD_SIMILARITY_SCORE", "0.7"))
 BAD_SIMILARITY_SCORE = float(os.getenv("BAD_SIMILARITY_SCORE", "0.3"))
 
@@ -93,7 +94,8 @@ ALL_METRIC_KEYS: set[str] = set(ALLOWED_METRICS_MAP.values())
 
 # --- Pydantic Model for Similarity Scores ---
 class SimilarityScores(BaseModel):
-    """Data model for storing calculated similarity scores.
+    """
+    Data model for storing calculated similarity scores.
 
     Allows initialization using internal metric keys (which serve as aliases)
     and allows access via Pythonic attribute names (e.g., `scores.cosine`).
@@ -103,7 +105,7 @@ class SimilarityScores(BaseModel):
 
     model_config = ConfigDict(
         populate_by_name=True,  # Allows initialization by field name or alias
-        extra="ignore",         # Ignores extra fields provided during initialization
+        extra="ignore",  # Ignores extra fields provided during initialization
     )
 
     cosine: Optional[float] = Field(default=None, description="Cosine similarity score", alias=METRIC_COSINE)
@@ -112,7 +114,8 @@ class SimilarityScores(BaseModel):
 
 
 class SemanticCosineSimilarity:
-    """Calculates semantic similarity between texts using Sentence Transformers with chunking.
+    """
+    Calculates semantic similarity between texts using Sentence Transformers with chunking.
 
     This class encapsulates the logic for:
     1.  Initializing with a Sentence Transformer model and parameters for chunking.
@@ -146,10 +149,11 @@ class SemanticCosineSimilarity:
         self,
         model: SentenceTransformer,
         chunk_size: int = 384,  # Default based on common model input sizes (e.g., BERT variants)
-        overlap: int = 64,      # Default overlap, provides some context continuity
-        batch_size: int = 32,   # Common default batch size for encoding
+        overlap: int = 64,  # Default overlap, provides some context continuity
+        batch_size: int = 32,  # Common default batch size for encoding
     ) -> None:
-        """Initialize the SemanticCosineSimilarity calculator.
+        """
+        Initialize the SemanticCosineSimilarity calculator.
 
         Args:
             model (SentenceTransformer): An initialized Sentence Transformer model instance.
@@ -182,7 +186,7 @@ class SemanticCosineSimilarity:
             msg = "Overlap (overlap) cannot be negative."
             logger.error(msg)
             raise ValueError(msg)
-        if chunk_size <= overlap: # Must be strictly greater for chunks to make sense
+        if chunk_size <= overlap:  # Must be strictly greater for chunks to make sense
             msg = f"chunk_size ({chunk_size}) must be strictly greater than overlap ({overlap})."
             logger.error(msg)
             raise ValueError(msg)
@@ -198,14 +202,14 @@ class SemanticCosineSimilarity:
 
         # Attempt to get the model's name for more informative logging.
         # This tries various common ways a model name might be stored.
-        model_name = getattr(getattr(model, "config", {}), "name", None) # E.g. Hugging Face model config
-        if not model_name: # Fallback for SentenceTransformer specific storage
+        model_name = getattr(getattr(model, "config", {}), "name", None)  # E.g. Hugging Face model config
+        if not model_name:  # Fallback for SentenceTransformer specific storage
             model_name_from_st_config = getattr(model, "_model_config", {}).get("name")
             if model_name_from_st_config:
                 model_name = model_name_from_st_config
-            elif hasattr(model, "name_or_path"): # Another common attribute in Hugging Face / ST models
+            elif hasattr(model, "name_or_path"):  # Another common attribute in Hugging Face / ST models
                 model_name = model.name_or_path
-            else: # Generic fallback to class name if no specific name is found
+            else:  # Generic fallback to class name if no specific name is found
                 model_name = model.__class__.__name__
 
         logger.info(
@@ -215,7 +219,8 @@ class SemanticCosineSimilarity:
         )
 
     def _get_aggregated_embedding(self, text: str) -> Optional[torch.Tensor]:
-        """Encode a text string into a single aggregated embedding vector.
+        """
+        Encode a text string into a single aggregated embedding vector.
 
         If the input `text` is longer than `self.chunk_size` (in characters),
         it is split into overlapping chunks. Each chunk is then encoded individually
@@ -253,7 +258,7 @@ class SemanticCosineSimilarity:
                 embedding: torch.Tensor = self.model.encode(
                     text_stripped,
                     convert_to_tensor=True,
-                    show_progress_bar=False, # Not useful for single text/small number of chunks
+                    show_progress_bar=False,  # Not useful for single text/small number of chunks
                 )
                 # `squeeze()` removes dimensions of size 1. For a single sentence,
                 # model.encode might return (1, D); squeeze makes it (D,).
@@ -269,8 +274,8 @@ class SemanticCosineSimilarity:
                 # is not perfectly divisible or if issues arise from string slicing.
                 chunks = [
                     text_stripped[i : i + self.chunk_size]  # Slice the text to get a chunk
-                    for i in range(0, n, step)             # Iterate with the calculated step
-                    if text_stripped[i : i + self.chunk_size] # Ensure the slice is not empty
+                    for i in range(0, n, step)  # Iterate with the calculated step
+                    if text_stripped[i : i + self.chunk_size]  # Ensure the slice is not empty
                 ]
                 # Further filter to remove chunks that consist only of whitespace.
                 valid_chunks = [chunk for chunk in chunks if chunk.strip()]
@@ -296,7 +301,7 @@ class SemanticCosineSimilarity:
                     )
 
                     # Validate that the encoding process produced a non-empty tensor.
-                    if chunk_embeddings.nelement() == 0: # `nelement()` is num_elements.
+                    if chunk_embeddings.nelement() == 0:  # `nelement()` is num_elements.
                         logger.error(
                             f"SentenceTransformer model encoding returned an empty tensor for chunks of text: "
                             f"'{text_stripped[:70]}...'. This may indicate an issue with the model or input.",
@@ -321,13 +326,14 @@ class SemanticCosineSimilarity:
                 # If it's a scalar, unsqueeze it to make it a 1D tensor.
                 aggregated_embedding = aggregated_embedding.unsqueeze(0)
 
-        except Exception: # Catch any unexpected errors during encoding or aggregation.
+        except Exception:  # Catch any unexpected errors during encoding or aggregation.
             logger.exception(f"Failed to encode or aggregate text: '{text_stripped[:70]}...'.")
-            aggregated_embedding = None # Ensure None is returned on failure.
+            aggregated_embedding = None  # Ensure None is returned on failure.
         return aggregated_embedding
 
     def _resolve_requested_metrics(self, metrics_to_calculate: Optional[list[str]]) -> set[str]:
-        """Process a list of user-requested metric names into a set of valid internal metric keys.
+        """
+        Process a list of user-requested metric names into a set of valid internal metric keys.
 
         This method validates the requested metric names against `ALLOWED_METRICS_MAP`.
         If `metrics_to_calculate` is `None`, it defaults to calculating only cosine similarity.
@@ -362,14 +368,15 @@ class SemanticCosineSimilarity:
 
     def _handle_early_exit_cases(
         self,
-        text1: str, # Original text1 for comparison
-        text2: str, # Original text2 for comparison
-        *, # Force subsequent arguments to be keyword-only for clarity
+        text1: str,  # Original text1 for comparison
+        text2: str,  # Original text2 for comparison
+        *,  # Force subsequent arguments to be keyword-only for clarity
         is_text1_empty: bool,
         is_text2_empty: bool,
         requested_metrics: set[str],
     ) -> tuple[bool, Optional[SimilarityScores]]:
-        """Check for conditions that allow for an early exit without full embedding generation.
+        """
+        Check for conditions that allow for an early exit without full embedding generation.
 
         These conditions include:
         - Texts being identical.
@@ -408,16 +415,16 @@ class SemanticCosineSimilarity:
                 scores_data[METRIC_EUCLIDEAN] = 0.0
             if METRIC_MANHATTAN in requested_metrics:
                 scores_data[METRIC_MANHATTAN] = 0.0
-            return False, SimilarityScores(**scores_data) # Early exit, scores provided.
+            return False, SimilarityScores(**scores_data)  # Early exit, scores provided.
 
         # Case 2: One text is effectively empty, and the other is not.
         # Meaningful semantic comparison is not possible in this state.
-        if is_text1_empty != is_text2_empty: # XOR condition: one is true, the other is false.
+        if is_text1_empty != is_text2_empty:  # XOR condition: one is true, the other is false.
             logger.warning(
                 "One input text is effectively empty (or whitespace) while the other is not. "
                 "Semantic comparison is not meaningful. Returning None.",
             )
-            return False, None # Early exit, no scores possible.
+            return False, None  # Early exit, no scores possible.
 
         # Case 3: No valid metrics were requested by the user.
         # This could happen if `metrics_to_calculate` was an empty list or contained only invalid names.
@@ -426,18 +433,19 @@ class SemanticCosineSimilarity:
                 "No valid metrics were requested (or list was empty). "
                 "Returning an empty SimilarityScores object (all metrics None).",
             )
-            return False, SimilarityScores() # Early exit, returns an empty scores object.
+            return False, SimilarityScores()  # Early exit, returns an empty scores object.
 
         # If none of the above conditions are met, proceed to embedding generation.
         return True, None
 
     def _calculate_metrics_for_embeddings(
         self,
-        emb1: torch.Tensor, # Assumed to be a 1D tensor
-        emb2: torch.Tensor, # Assumed to be a 1D tensor
+        emb1: torch.Tensor,  # Assumed to be a 1D tensor
+        emb2: torch.Tensor,  # Assumed to be a 1D tensor
         requested_metrics: set[str],
     ) -> SimilarityScores:
-        """Calculate the specified similarity/distance metrics given two 1D embedding tensors.
+        """
+        Calculate the specified similarity/distance metrics given two 1D embedding tensors.
 
         Args:
             emb1 (torch.Tensor): The 1D embedding vector for the first text.
@@ -453,8 +461,8 @@ class SemanticCosineSimilarity:
         scores_data: dict[str, float] = {}  # To store calculated scores with internal keys.
 
         # Reshape 1D embeddings to 2D (1, D) as PyTorch functions often expect batch input.
-        emb1_reshaped = emb1.unsqueeze(0) # Changes shape from (D,) to (1, D)
-        emb2_reshaped = emb2.unsqueeze(0) # Changes shape from (D,) to (1, D)
+        emb1_reshaped = emb1.unsqueeze(0)  # Changes shape from (D,) to (1, D)
+        emb2_reshaped = emb2.unsqueeze(0)  # Changes shape from (D,) to (1, D)
 
         # Calculate Cosine Similarity if requested.
         if METRIC_COSINE in requested_metrics:
@@ -487,9 +495,10 @@ class SemanticCosineSimilarity:
         self,
         text1: str,
         text2: str,
-        metrics_to_calculate: Optional[list[str]] = None, # Default is None, handled by _resolve_requested_metrics
+        metrics_to_calculate: Optional[list[str]] = None,  # Default is None, handled by _resolve_requested_metrics
     ) -> Optional[SimilarityScores]:
-        """Calculate specified similarity and/or distance metrics between two text strings.
+        """
+        Calculate specified similarity and/or distance metrics between two text strings.
 
         This is the main public method of the class. It orchestrates the process of:
         1. Validating requested metrics.
@@ -526,8 +535,8 @@ class SemanticCosineSimilarity:
         # Step 3: Check for early exit conditions.
         # This avoids unnecessary embedding computation if results can be determined directly.
         proceed_to_embeddings, early_result = self._handle_early_exit_cases(
-            text1, # Pass original text1 for direct comparison if needed
-            text2, # Pass original text2 for direct comparison if needed
+            text1,  # Pass original text1 for direct comparison if needed
+            text2,  # Pass original text2 for direct comparison if needed
             is_text1_empty=is_text1_empty,
             is_text2_empty=is_text2_empty,
             requested_metrics=requested_metrics,
@@ -542,9 +551,9 @@ class SemanticCosineSimilarity:
         # This is the potentially time-consuming part.
         try:
             logger.debug("Generating embedding for text 1...")
-            emb1 = self._get_aggregated_embedding(text1) # Handles chunking internally
+            emb1 = self._get_aggregated_embedding(text1)  # Handles chunking internally
             logger.debug("Generating embedding for text 2...")
-            emb2 = self._get_aggregated_embedding(text2) # Handles chunking internally
+            emb2 = self._get_aggregated_embedding(text2)  # Handles chunking internally
 
             # Step 5: Validate the generated embeddings.
             if emb1 is None or emb2 is None:
@@ -552,7 +561,7 @@ class SemanticCosineSimilarity:
                     "Could not generate valid embeddings for one or both texts. "
                     "This might be due to empty inputs after processing or model errors.",
                 )
-                return None # Cannot proceed without both embeddings.
+                return None  # Cannot proceed without both embeddings.
 
             # Ensure embeddings are 1D tensors as expected for metric calculations.
             if emb1.dim() != 1 or emb2.dim() != 1:
@@ -560,17 +569,17 @@ class SemanticCosineSimilarity:
                     f"Embeddings have unexpected dimensions after aggregation: "
                     f"emb1 shape: {emb1.shape}, emb2 shape: {emb2.shape}. Expected 1D tensors.",
                 )
-                return None # Metric calculations assume 1D embeddings.
+                return None  # Metric calculations assume 1D embeddings.
 
             # Step 6: All checks passed, calculate metrics using the generated embeddings.
             return self._calculate_metrics_for_embeddings(emb1, emb2, requested_metrics)
 
-        except Exception: # Catch any other unexpected errors during the process.
+        except Exception:  # Catch any other unexpected errors during the process.
             logger.exception(
                 f"An unexpected error occurred during embedding generation or metric calculation for texts: "
                 f"'{text1[:70]}...' vs '{text2[:70]}...'.",
             )
-            return None # Return None on unexpected failure.
+            return None  # Return None on unexpected failure.
 
 
 # --- Example Usage ---
@@ -625,7 +634,10 @@ if __name__ == "__main__":
 
         # --- Initialize Semantic Similarity Calculator ---
         semantic_calculator = SemanticCosineSimilarity(
-            model=model, chunk_size=CHUNK_SIZE, overlap=OVERLAP, batch_size=BATCH_SIZE,
+            model=model,
+            chunk_size=CHUNK_SIZE,
+            overlap=OVERLAP,
+            batch_size=BATCH_SIZE,
         )
 
         # --- Example Texts ---
@@ -692,7 +704,9 @@ if __name__ == "__main__":
             logger.info(f"Calculating for: [bold yellow]{case['desc']}[/bold yellow]")
             # scores_obj is now Optional[SimilarityScores]
             scores_obj: Optional[SimilarityScores] = semantic_calculator.calculate_similarity(
-                case["t1"], case["t2"], metrics_to_calculate=case["metrics"],
+                case["t1"],
+                case["t2"],
+                metrics_to_calculate=case["metrics"],
             )
 
             if scores_obj is not None:
@@ -720,8 +734,8 @@ if __name__ == "__main__":
                         elif "distance" in metric_key_alias:
                             if value < DEFAULT_DISTANCE_THRESHOLD:
                                 color = "green"
-                            elif value < 1.0: # This 1.0 is another potential magic number,
-                                              # but not in scope for this task.
+                            elif value < 1.0:  # This 1.0 is another potential magic number,
+                                # but not in scope for this task.
                                 color = "yellow"
                             else:
                                 color = "red"

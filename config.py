@@ -1,4 +1,5 @@
-"""Configuration module for the Essay Grading application.
+"""
+Configuration module for the Essay Grading application.
 
 This module defines configuration models, settings, and utilities for loading
 and validating application settings from environment variables, .env files, and YAML files.
@@ -28,7 +29,8 @@ VALID_ENVS: set[str] = {"dev", "prod"}  # Define valid environments here
 
 
 class AppConfig(BaseModel):
-    """Application configuration settings.
+    """
+    Application configuration settings.
 
     Attributes:
         name (str): The name of the application.
@@ -45,7 +47,8 @@ class AppConfig(BaseModel):
 
 
 class SemanticConfig(BaseModel):
-    """Configuration for semantic similarity calculations.
+    """
+    Configuration for semantic similarity calculations.
 
     Attributes:
         model_name (str): Name or path of the SentenceTransformer model to be used.
@@ -61,11 +64,13 @@ class SemanticConfig(BaseModel):
     overlap: int = Field(64, description="Overlap size between text chunks for semantic processing.")
     batch_size: int = Field(32, description="Batch size for semantic model inference.")
     device: Literal["cpu", "cuda", "mps"] = Field(
-        "cpu", description="Device to run the semantic model on ('cpu', 'cuda', 'mps').",
+        "cpu",
+        description="Device to run the semantic model on ('cpu', 'cuda', 'mps').",
     )
 
     class Config:
-        """Configuration class for SemanticConfig.
+        """
+        Configuration class for SemanticConfig.
 
         Attributes:
             env_prefix (str): The prefix for environment variables.
@@ -76,7 +81,8 @@ class SemanticConfig(BaseModel):
 
 
 class SpacyConfig(BaseModel):
-    """Configuration for spaCy model.
+    """
+    Configuration for spaCy model.
 
     Attributes:
         model_name (str): The name or path of the spaCy model to load (e.g., "en_core_web_sm").
@@ -86,13 +92,15 @@ class SpacyConfig(BaseModel):
     """
 
     model_name: str = Field(
-        "en_core_web_sm", description="The name of the spaCy model to use (e.g., 'en_core_web_sm').",
+        "en_core_web_sm",
+        description="The name of the spaCy model to use (e.g., 'en_core_web_sm').",
     )
     batch_size: int = Field(32, description="Batch size for spaCy processing pipelines.")
     device: Literal["cpu", "cuda"] = Field("cpu", description="Device preference for spaCy ('cpu' or 'cuda').")
 
     class Config:
-        """Configuration class for SpacyConfig.
+        """
+        Configuration class for SpacyConfig.
 
         Attributes:
             env_prefix (str): The prefix for environment variables.
@@ -103,7 +111,8 @@ class SpacyConfig(BaseModel):
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables.
+    """
+    Application settings loaded from environment variables.
 
     Attributes:
         env (str): The environment to run in (dev, prod, etc.).
@@ -138,7 +147,8 @@ class Settings(BaseSettings):
     @field_validator("env")  # Validates the 'env' field after it's populated.
     @classmethod  # Needs to be a classmethod for Pydantic v2 validators.
     def check_env_is_valid(cls, v: str) -> str:
-        """Validate the env field and ensure it is a valid environment.
+        """
+        Validate the env field and ensure it is a valid environment.
 
         Args:
             v (str): The value of the env field.

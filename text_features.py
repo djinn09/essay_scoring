@@ -1,4 +1,5 @@
-"""Text Feature Extraction and Analysis Module.
+"""
+Text Feature Extraction and Analysis Module.
 
 This module provides a comprehensive suite of tools for extracting various
 features from textual data, primarily aimed at text comparison, similarity
@@ -69,7 +70,6 @@ import warnings
 from collections import defaultdict
 from typing import Any, Optional  # Added Union earlier, now just using specific types
 
-import nltk # Moved from bottom for E402
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field  # Pydantic imports
@@ -107,7 +107,8 @@ warnings.filterwarnings(
 
 
 class WordVectorCreationResult(BaseModel):
-    """Holds the result of word vector creation using CountVectorizer.
+    """
+    Holds the result of word vector creation using CountVectorizer.
 
     This model stores the sparse word-document matrix and the vocabulary list
     generated during the vectorization process.
@@ -134,7 +135,8 @@ class WordVectorCreationResult(BaseModel):
 
 
 class GraphMetrics(BaseModel):
-    """Represents basic metrics of a graph.
+    """
+    Represents basic metrics of a graph.
 
     Used to summarize the size and density of graphs, such as the corpus graph
     or subgraphs generated during analysis.
@@ -151,7 +153,8 @@ class GraphMetrics(BaseModel):
 
 
 class SmithWatermanParams(BaseModel):
-    """Parameters for the Smith-Waterman local alignment algorithm variant.
+    """
+    Parameters for the Smith-Waterman local alignment algorithm variant.
 
     This model encapsulates all necessary inputs for performing a Smith-Waterman
     alignment on specific windows within two tokenized texts.
@@ -167,7 +170,8 @@ class SmithWatermanParams(BaseModel):
         ),
     )
     gap_penalty: float = Field(
-        ..., description="Penalty for introducing a gap in the alignment (should be negative or zero).",
+        ...,
+        description="Penalty for introducing a gap in the alignment (should be negative or zero).",
     )
     win1: tuple[int, int] = Field(
         ...,
@@ -181,7 +185,8 @@ class SmithWatermanParams(BaseModel):
 
 
 class LexicalClusterFeature(BaseModel):
-    """Stores lexical and clustering-based features for a single text (e.g., a student answer).
+    """
+    Stores lexical and clustering-based features for a single text (e.g., a student answer).
 
     These features are derived from comparing the text against a set of model/reference texts
     using TF-IDF and hierarchical clustering.
@@ -245,7 +250,8 @@ class SmithWatermanConfig(BaseModel):
 
 
 class FullTextAnalysisInput(BaseModel):
-    """Input parameters for the comprehensive text analysis pipeline (`run_full_text_analysis`).
+    """
+    Input parameters for the comprehensive text analysis pipeline (`run_full_text_analysis`).
 
     This model gathers all necessary data and configuration to analyze a collection
     of student texts against a collection of model answers.
@@ -287,7 +293,8 @@ class FullTextAnalysisInput(BaseModel):
 
 
 class FullTextAnalysisResult(BaseModel):
-    """Stores the comprehensive results from analyzing a set of student texts against model answers.
+    """
+    Stores the comprehensive results from analyzing a set of student texts against model answers.
 
     This includes metrics for the corpus graph, lexical features for each student,
     and aggregated per-student similarity scores relative to the model answers.
@@ -515,7 +522,8 @@ for model_cls in MODULE_MODELS:
 
 
 def simple_tokenize(text: str) -> list[str]:
-    """Tokenizes a text string by converting to lowercase, removing punctuation, and splitting by whitespace.
+    """
+    Tokenizes a text string by converting to lowercase, removing punctuation, and splitting by whitespace.
 
     Args:
         text (str): The input text string.
@@ -525,7 +533,7 @@ def simple_tokenize(text: str) -> list[str]:
 
     """
     if not isinstance(text, str):
-        logger.warning("simple_tokenize received non-string input: %s. Returning empty list.", type(text))
+        logger.warning("simple received non-string input: %s. Returning empty list.", type(text))
         return []
     text_lower = text.lower()
     # Remove punctuation by replacing non-alphanumeric characters (excluding whitespace) with an empty string.
@@ -535,7 +543,8 @@ def simple_tokenize(text: str) -> list[str]:
 
 
 def create_word_vectors(texts: list[str]) -> WordVectorCreationResult:
-    """Create a word-document matrix from a list of texts using CountVectorizer.
+    """
+    Create a word-document matrix from a list of texts using CountVectorizer.
 
     The function uses `simple_tokenize` for tokenization. The resulting matrix
     is a sparse representation (CSR format) of word counts per document.
@@ -569,12 +578,13 @@ def create_word_vectors(texts: list[str]) -> WordVectorCreationResult:
         words: list[str] = vectorizer.get_feature_names_out().tolist()
         return WordVectorCreationResult(word_matrix_csr_scipy=word_matrix, words_vocabulary=words)
     except Exception:  # Catching generic Exception, consider more specific ones if known.
-        logger.exception("Error in create_word_vectors during vectorization.") # TRY401 Fix
+        logger.exception("Error in create_word_vectors during vectorization.")  # TRY401 Fix
         return WordVectorCreationResult()  # Return empty result on error.
 
 
 def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.Graph:
-    """Build a word co-occurrence graph based on cosine similarity of word vectors.
+    """
+    Build a word co-occurrence graph based on cosine similarity of word vectors.
 
     Nodes in the graph are words from the vocabulary. An edge exists between two
     words if their cosine similarity (based on their occurrences across documents)
@@ -658,7 +668,8 @@ def build_graph_efficiently(word_matrix_result: WordVectorCreationResult) -> nx.
 
 
 def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> GraphSimilarityOutput:
-    """Calculate similarity between two texts based on the density of their common words' subgraph.
+    """
+    Calculate similarity between two texts based on the density of their common words' subgraph.
 
     The method identifies common words between `text1` and `text2` that also exist
     in the provided `graph`. A subgraph is induced from these common words. The density
@@ -710,15 +721,16 @@ def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> Graph
     if sub_nodes < min_sub_nodes_for_density:
         message = f"Subgraph has < {min_sub_nodes_for_density} nodes ({sub_nodes}), so density is considered 0."
         # graph_sim_score remains 0.0, sub_density_val remains None (or can be set to 0.0)
-        sub_density_val = 0.0
     else:
         try:
             current_density = nx.density(subgraph)
-            # nx.density can return NaN for graphs with nodes but no possible edges (e.g., isolated nodes if N < 2, caught above)
+            # nx.density can return NaN for graphs with nodes but no possible edges
+            # (e.g., isolated nodes if N < 2, caught above)
             # or if the graph is degenerate in some way for the formula.
             if np.isnan(current_density):
                 logger.debug(
-                    "Subgraph density calculated as NaN (likely isolated nodes or specific graph structure), treating as 0.",
+                    "Subgraph density calculated as NaN (likely isolated nodes or specific graph structure), "
+                    "treating as 0.",
                 )
                 sub_density_val = 0.0
             else:
@@ -745,7 +757,8 @@ def calculate_graph_similarity(graph: nx.Graph, text1: str, text2: str) -> Graph
 
 
 def preprocess_sw(text: str, *, lowercase: bool = True, remove_punct: bool = True) -> list[str]:
-    """Preprocesses text for Smith-Waterman algorithm by lowercasing, removing punctuation, and splitting into tokens.
+    """
+    Preprocesses text for Smith-Waterman algorithm by lowercasing, removing punctuation, and splitting into tokens.
 
     Args:
         text (str): The input text string.
@@ -770,7 +783,8 @@ def preprocess_sw(text: str, *, lowercase: bool = True, remove_punct: bool = Tru
 
 
 def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[int]]:
-    """Build an index mapping each k-gram in a list of tokens to all its starting positions.
+    """
+    Build an index mapping each k-gram in a list of tokens to all its starting positions.
 
     This index is used in the fast Smith-Waterman variant to quickly find
     potential matching regions between two texts.
@@ -791,7 +805,9 @@ def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[i
     # Validate inputs: k must be positive, tokens list must not be empty and must be at least k tokens long.
     if k <= 0 or not tokens or len(tokens) < k:
         logger.debug(
-            "Invalid input for build_ngram_index (k=%s, len(tokens)=%s). Returning empty index.", k, len(tokens),
+            "Invalid input for build_ngram_index (k=%s, len(words)=%s). Returning empty index.",
+            k,
+            len(tokens),
         )
         return dict(index)  # Return as a plain dict
 
@@ -803,7 +819,8 @@ def build_ngram_index(tokens: list[str], k: int) -> dict[tuple[str, ...], list[i
 
 
 def smith_waterman_window(params: SmithWatermanParams) -> float:
-    """Perform the Smith-Waterman local alignment algorithm on specified windows of two token lists.
+    """
+    Perform the Smith-Waterman local alignment algorithm on specified windows of two token lists.
 
     This function calculates the alignment scores within the given windows and returns
     the maximum score found in the H (scoring) matrix. This score represents the
@@ -866,7 +883,8 @@ def compute_plagiarism_score_fast(
     text2: str,
     config: SmithWatermanConfig,
 ) -> PlagiarismScore:
-    """Compute a plagiarism score using a k-gram indexed, windowed Smith-Waterman algorithm.
+    """
+    Compute a plagiarism score using a k-gram indexed, windowed Smith-Waterman algorithm.
 
     This method speeds up alignment by first finding exact k-gram matches between
     the two texts. Smith-Waterman is then applied only to windows around these
@@ -948,10 +966,7 @@ def compute_plagiarism_score_fast(
     denominator = (
         min(len(t1_tokens), len(t2_tokens)) * config.match_score
     )  # Max possible score for shorter text if perfect match
-    if denominator == 0:  # Avoid division by zero if match_score is 0 or texts were empty
-        normalized_score = 0.0
-    else:
-        normalized_score = max_overall_sw_score / denominator
+    normalized_score = 0.0 if denominator == 0 else max_overall_sw_score / denominator
 
     # Ensure the score is clamped between 0.0 and 1.0.
     # It might exceed 1.0 if match_score > 1 or if normalization logic changes.
@@ -961,7 +976,8 @@ def compute_plagiarism_score_fast(
 
 
 def calculate_overlap_coefficient(text1: str, text2: str) -> OverlapCoefficient:
-    """Calculate the overlap coefficient between two texts based on their token sets.
+    """
+    Calculate the overlap coefficient between two texts based on their token sets.
 
     The overlap coefficient is defined as: |set1 intersect set2| / min(|set1|, |set2|).
     It measures the degree of overlap relative to the smaller set.
@@ -984,7 +1000,8 @@ def calculate_overlap_coefficient(text1: str, text2: str) -> OverlapCoefficient:
 
 
 def calculate_sorensen_dice_coefficient(text1: str, text2: str) -> SorensenDiceCoefficient:
-    """Calculate the Sørensen-Dice coefficient (or Dice score) between two texts based on their token sets.
+    """
+    Calculate the Sørensen-Dice coefficient (or Dice score) between two texts based on their token sets.
 
     The Sørensen-Dice coefficient is defined as: 2 * |set1 intersect set2| / (|set1| + |set2|).
     It measures the similarity between two sets, ranging from 0 (no overlap) to 1 (identical sets).
@@ -1003,16 +1020,14 @@ def calculate_sorensen_dice_coefficient(text1: str, text2: str) -> SorensenDiceC
     intersection_len = len(set1.intersection(set2))
     sum_of_set_lengths = len(set1) + len(set2)
     coefficient = (2 * intersection_len / sum_of_set_lengths) if sum_of_set_lengths > 0 else 0.0
-    # If both sets are empty, sum_of_set_lengths is 0. If intersection_len is also 0,
-    # this correctly yields 0.0. If both sets were identical and non-empty, it's 1.0.
-    # If both sets are empty and we want to consider them perfectly similar, this should be 1.0.
-    # However, standard Dice for empty sets is 0. Let's stick to that unless a different definition is required.
-    # If both sets are empty, len(set1)=0, len(set2)=0, intersection_len=0, sum_of_set_lengths=0 -> coefficient=0.0. This is fine.
+    # If both sets are empty, len(set1)=0, len(set2)=0, intersection_len=0, sum_of_set_lengths=0 -> coefficient=0.0.
+    # This is fine.
     return SorensenDiceCoefficient(coefficient=coefficient)
 
 
 def get_char_by_char_equality_optimized(s1_in: Optional[str], s2_in: Optional[str]) -> CharEqualityScore:
-    """Compare two strings character by character, applying a geometrically decaying weight for matches.
+    """
+    Compare two strings character by character, applying a geometrically decaying weight for matches.
 
     The score starts with a weight of 1.0 for the first character match. Each subsequent
     match contributes its current weight to the total score, and the weight for the
@@ -1045,7 +1060,8 @@ def get_char_by_char_equality_optimized(s1_in: Optional[str], s2_in: Optional[st
 
 
 def create_semantic_graph_spacy(text: str, spacy_nlp_model: Any) -> Optional[nx.Graph]:  # noqa: ANN401
-    """Create a semantic graph from text using spaCy's dependency parse.
+    """
+    Create a semantic graph from text using spaCy's dependency parse.
 
     Nodes in the graph represent tokens, identified by their index in the document.
     Node attributes include the token's text, lemma, and part-of-speech tag.
@@ -1083,7 +1099,8 @@ def calculate_semantic_graph_similarity_spacy(
     graph1: Optional[nx.Graph],
     graph2: Optional[nx.Graph],
 ) -> SemanticGraphSimilarity:
-    """Calculate similarity between two semantic graphs (from spaCy) based on Jaccard index of nodes and edges.
+    """
+    Calculate similarity between two semantic graphs (from spaCy) based on Jaccard index of nodes and edges.
 
     This function assumes graphs are generated by `create_semantic_graph_spacy` or have a similar structure.
     The overall similarity is a simple average of the Jaccard similarity of their node sets
@@ -1140,7 +1157,8 @@ def calculate_semantic_graph_similarity_spacy(
 
 
 def preprocess_tfidf(text: str, *, lowercase: bool = True, remove_punct: bool = True) -> str:
-    """Prepare text for TF-IDF vectorization by lowercasing and removing punctuation.
+    """
+    Prepare text for TF-IDF vectorization by lowercasing and removing punctuation.
 
     Args:
         text (str): The input text string.
@@ -1170,7 +1188,8 @@ def extract_lexical_features(
     distance_metric: str = "sqeuclidean",  # Default distance metric for pdist
     cluster_dist_thresh: float = 0.5,  # Default distance threshold for forming flat clusters
 ) -> LexicalFeaturesAnalysis:
-    """Extract lexical and clustering-based features for student answers relative to model answers.
+    """
+    Extract lexical and clustering-based features for student answers relative to model answers.
 
     This function performs several steps:
     1. Preprocesses all model and student answers.
@@ -1227,9 +1246,9 @@ def extract_lexical_features(
 
         tfidf_matrix = vectorizer.fit_transform(all_texts_processed).toarray()
     except ValueError:  # Catch errors like "empty vocabulary" if all texts are stopwords or too short.
-        logger.exception( # TRY401 Fix
+        logger.exception(  # TRY401 Fix
             "TF-IDF Vectorization error in extract_lexical_features. "
-            "This can happen if texts are empty or contain only stopwords after preprocessing."
+            "This can happen if texts are empty or contain only stopwords after preprocessing.",
         )
         # Return empty features if TF-IDF fails critically.
         return LexicalFeaturesAnalysis(student_features=[])
@@ -1266,8 +1285,8 @@ def extract_lexical_features(
         # `linkage` performs hierarchical/agglomerative clustering.
         linkage_matrix = linkage(pairwise_dist_matrix_condensed, method=linkage_method)
     except ValueError:  # `linkage` also needs more than 1 observation.
-        logger.exception( # TRY401 Fix
-            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape})."
+        logger.exception(  # TRY401 Fix
+            f"Linkage error in extract_lexical_features (TF-IDF matrix shape: {tfidf_matrix.shape}).",
         )
         error_feature = LexicalClusterFeature(
             coph_min=0.0,
@@ -1284,10 +1303,11 @@ def extract_lexical_features(
     # `cophenet` returns the cophenetic correlation coefficient itself and the cophenetic distance matrix (condensed).
     try:
         _cophenetic_corr_coeff, cophenetic_distances_condensed = cophenet(
-            linkage_matrix, pairwise_dist_matrix_condensed,
+            linkage_matrix,
+            pairwise_dist_matrix_condensed,
         )
     except Exception:  # Catch any error during cophenet calculation
-        logger.exception("Cophenet calculation error. Using zero matrix for cophenetic distances.") # TRY401 Fix
+        logger.exception("Cophenet calculation error. Using zero matrix for cophenetic distances.")  # TRY401 Fix
         cophenetic_distances_condensed = np.zeros_like(pairwise_dist_matrix_condensed)  # Fallback
 
     # Convert the condensed cophenetic distance matrix to its square form for easier indexing.
@@ -1359,7 +1379,8 @@ def run_single_pair_text_analysis(
     inputs: SinglePairAnalysisInput,
     existing_graph: Optional[nx.Graph] = None,  # Allow passing a pre-built corpus graph
 ) -> SinglePairAnalysisResult:
-    """Analyzes a single model answer against a single student answer for various similarity metrics.
+    """
+    Analyzes a single model answer against a single student answer for various similarity metrics.
 
     This function computes:
     - Graph-based similarity (if `existing_graph` is provided or a local one can be built).
@@ -1379,7 +1400,7 @@ def run_single_pair_text_analysis(
 
     Returns:
         SinglePairAnalysisResult: A Pydantic model containing all computed similarity metrics
-                                  for the input pair of texts.
+                                  for the input pair of texts
 
     """
     logger.info(
@@ -1440,9 +1461,13 @@ def run_single_pair_text_analysis(
     #     if 'nlp' in globals() and nlp: # Check if global 'nlp' (spaCy model) is loaded.
     #         s_graph_student = create_semantic_graph_spacy(inputs.student_text, nlp)
     #         s_graph_model = create_semantic_graph_spacy(inputs.model_answer, nlp)
-    #         results.semantic_graph_similarity = calculate_semantic_graph_similarity_spacy(s_graph_student, s_graph_model)
+    #         results.semantic_graph_similarity = calculate_semantic_graph_similarity_spacy(
+    # s_graph_student, s_graph_model
+    # )
     #     else:
-    #         logger.info("spaCy model (nlp) not available. Skipping semantic graph similarity in single pair analysis.")
+    #         logger.info(
+    #             "spaCy model (nlp) not available. Skipping semantic graph similarity in single pair analysis."
+    #         )
     # except NameError: # If 'nlp' is not defined at all.
     #     logger.info("spaCy (nlp variable) not defined. Skipping semantic graph similarity for single pair.")
 
@@ -1453,7 +1478,8 @@ def run_single_pair_text_analysis(
 def run_full_text_analysis(
     inputs: FullTextAnalysisInput,
 ) -> tuple[FullTextAnalysisResult, Optional[nx.Graph]]:
-    """Orchestrates a comprehensive text analysis pipeline.
+    """
+    Orchestrates a comprehensive text analysis pipeline.
 
     This function processes multiple student texts against multiple model answers.
     It performs the following main steps:
@@ -1527,8 +1553,8 @@ def run_full_text_analysis(
             "Lexical features extracted for %d students.",
             len(lexical_features_result.student_features) if lexical_features_result else 0,
         )
-    except Exception as e:  # Catch broad exception to ensure pipeline continues if this step fails.
-        logger.exception(f"Error extracting lexical features: {e}")
+    except Exception:  # Catch broad exception to ensure pipeline continues if this step fails.
+        logger.exception("Error extracting lexical features.")
         results.student_lexical_features = None  # Or LexicalFeaturesAnalysis(student_features=[])
 
     # --- Step 3: Per-student analysis (similarity of each student to all model answers) ---

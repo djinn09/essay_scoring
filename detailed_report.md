@@ -34,7 +34,7 @@ The toolkit is organized as a modular Python library, with each module responsib
 ### 3.3. Configuration and Logging
 - **`settings.py`**: Loads settings from YAML/.env/environment, initializes the global logger, and loads the semantic model.
 - **`config.py`**: Defines all configuration models and the `get_settings()` loader.
-- **`logger_utill.py`**: Sets up logging, with support for rich output if available.
+- **`logger_utils.py`**: Sets up logging, with support for rich output if available.
 
 ---
 
@@ -143,7 +143,7 @@ The toolkit is organized as a modular Python library, with each module responsib
 | coreference.py        | rule_based_coref_resolution_v4        | Rule-based coreference resolution                |
 | preprocess.py         | (various)                             | Text preprocessing utilities                     |
 | config.py/settings.py | get_settings, settings                | Configuration and global settings                |
-| logger_utill.py       | setup_global_logger                   | Logging setup                                    |
+| logger_utils.py       | setup_global_logger                   | Logging setup                                    |
 | app_types.py          | (Pydantic models)                     | Data models for all modules                      |
 
 ---
