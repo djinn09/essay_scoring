@@ -1,4 +1,5 @@
-"""Defines Pydantic data models used throughout the essay grading application.
+"""
+Defines Pydantic data models used throughout the essay grading application.
 
 This module centralizes the definitions of data structures, ensuring type safety
 and clear contracts between different parts of the application. Models include:
@@ -17,7 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class Essay(BaseModel):
-    """Represents an essay and its corresponding reference text(s).
+    """
+    Represents an essay and its corresponding reference text(s).
 
     This model is typically used as an input to scoring functions.
     The `text` and `reference` can be single strings or lists of strings
@@ -25,15 +27,18 @@ class Essay(BaseModel):
     """
 
     text: str | list[str] = Field(
-        ..., description="The essay text to be scored. Can be a single string or a list of strings (e.g., paragraphs).",
+        ...,
+        description="The essay text to be scored. Can be a single string or a list of strings (e.g., paragraphs).",
     )
     reference: str | list[str] = Field(
-        ..., description="The reference text(s) to compare against. Can be a single string or a list of strings.",
+        ...,
+        description="The reference text(s) to compare against. Can be a single string or a list of strings.",
     )
 
 
 class SimilarityMetrics(BaseModel):
-    """Defines a comprehensive set of similarity and distance metrics that can be calculated between two texts.
+    """
+    Defines a comprehensive set of similarity and distance metrics that can be calculated between two texts.
 
     All fields are optional and default to 0.0, as some metrics might fail,
     not be applicable for certain inputs, or simply not be requested for a given analysis.
@@ -50,7 +55,8 @@ class SimilarityMetrics(BaseModel):
         description="Normalized Levenshtein similarity. 1.0 for identical strings, 0.0 for completely different.",
     )
     jaro_winkler: Optional[float] = Field(
-        default=0.0, description="Jaro-Winkler similarity, emphasizes prefix matches. Score from 0.0 to 1.0.",
+        default=0.0,
+        description="Jaro-Winkler similarity, emphasizes prefix matches. Score from 0.0 to 1.0.",
     )
     metric_lcs_similarity: Optional[float] = Field(
         default=0.0,
@@ -167,7 +173,8 @@ class SimilarityMetrics(BaseModel):
 
 
 class TfidfConfig(BaseModel):
-    """Configuration for the `TfidfVectorizer` from scikit-learn.
+    """
+    Configuration for the `TfidfVectorizer` from scikit-learn.
 
     This model allows specifying parameters like token pattern, n-gram range,
     and document frequency thresholds (max_df, min_df) to customize TF-IDF vectorization.
@@ -206,7 +213,8 @@ class TfidfConfig(BaseModel):
 
 # --- Main SimilarityCalculator Class ---
 class SimilarityCalculatorConfig(BaseModel):
-    """Configuration for the `SimilarityCalculator` class.
+    """
+    Configuration for the `SimilarityCalculator` class.
 
     This model allows setting preferences for text preprocessing steps like
     lemmatization and stop-word removal, as well as providing a nested
@@ -234,14 +242,16 @@ class SimilarityCalculatorConfig(BaseModel):
 
 
 class SinglePairAnalysisInput(BaseModel):
-    """Input parameters for analyzing a single pair of texts (e.g., one model answer vs. one student text).
+    """
+    Input parameters for analyzing a single pair of texts (e.g., one model answer vs. one student text).
 
     This is used by functions like `run_single_pair_text_analysis`.
     """
 
     model_answer: str = Field(..., description="The model or reference text string.")
     student_text: str = Field(
-        ..., description="The student-provided text string to be analyzed against the model answer.",
+        ...,
+        description="The student-provided text string to be analyzed against the model answer.",
     )
     plagiarism_k: int = Field(
         default=3,
@@ -258,7 +268,8 @@ class SinglePairAnalysisInput(BaseModel):
 
 
 class GraphSimilarityOutput(BaseModel):
-    """Output structure for graph-based text similarity calculation.
+    """
+    Output structure for graph-based text similarity calculation.
 
     Contains the similarity score (typically subgraph density), details about
     the common subgraph, and an optional message.
@@ -279,7 +290,8 @@ class GraphSimilarityOutput(BaseModel):
         description="Density of the common subgraph. May be None if not applicable (e.g., too few nodes).",
     )
     message: Optional[str] = Field(
-        default=None, description="An optional message providing context or details about the calculation.",
+        default=None,
+        description="An optional message providing context or details about the calculation.",
     )
 
 
@@ -297,7 +309,8 @@ class PlagiarismScore(BaseModel):
 
 
 class OverlapCoefficient(BaseModel):
-    """Represent the overlap coefficient calculated between two sets of tokens.
+    """
+    Represent the overlap coefficient calculated between two sets of tokens.
 
     Formula: |A intersect B| / min(|A|, |B|)
     """
@@ -311,7 +324,8 @@ class OverlapCoefficient(BaseModel):
 
 
 class SorensenDiceCoefficient(BaseModel):
-    """Represent the Sørensen-Dice coefficient (or Dice score) calculated between two sets of tokens.
+    """
+    Represent the Sørensen-Dice coefficient (or Dice score) calculated between two sets of tokens.
 
     Formula: 2 * |A intersect B| / (|A| + |B|)
     """
@@ -358,21 +372,25 @@ class SemanticGraphSimilarity(BaseModel):
 
 
 class SinglePairAnalysisResult(BaseModel):
-    """Aggregates all analysis results for a single pair of texts (student vs. model).
+    """
+    Aggregates all analysis results for a single pair of texts (student vs. model).
 
     Each field is optional, allowing for flexibility if some analyses are skipped or fail.
     """
 
     graph_similarity: Optional[GraphSimilarityOutput] = Field(
-        default=None, description="Graph-based similarity scores.",
+        default=None,
+        description="Graph-based similarity scores.",
     )
     plagiarism_score: Optional[PlagiarismScore] = Field(default=None, description="Plagiarism detection score.")
     overlap_coefficient: Optional[OverlapCoefficient] = Field(default=None, description="Overlap coefficient score.")
     dice_coefficient: Optional[SorensenDiceCoefficient] = Field(
-        default=None, description="Sørensen-Dice coefficient score.",
+        default=None,
+        description="Sørensen-Dice coefficient score.",
     )
     char_equality_score: Optional[CharEqualityScore] = Field(
-        default=None, description="Character-by-character equality score.",
+        default=None,
+        description="Character-by-character equality score.",
     )
     semantic_graph_similarity: Optional[SemanticGraphSimilarity] = Field(
         default=None,
@@ -445,14 +463,16 @@ class MatcherScores(BaseModel):  # This seems to be a wrapper, perhaps for futur
         description="A list of specific keywords from the primary text (A) that were found in the secondary text (B).",
     )
     keywords_matcher_result: KeywordMatcherScore = Field(
-        ..., description="The core scores and counts from keyword matching.",
+        ...,
+        description="The core scores and counts from keyword matching.",
     )
 
     model_config = ConfigDict(extra="forbid")
 
 
 class EssayScores(BaseModel):
-    """The main data model for aggregating all calculated scores for an essay.
+    """
+    The main data model for aggregating all calculated scores for an essay.
 
     This model brings together semantic scores, various similarity metrics,
     text-specific analysis results (like plagiarism and graph similarity),
@@ -460,10 +480,12 @@ class EssayScores(BaseModel):
     """
 
     semantic_score: Optional[float] = Field(
-        default=0.0, description="Overall semantic similarity score, possibly an aggregation or primary model output.",
+        default=0.0,
+        description="Overall semantic similarity score, possibly an aggregation or primary model output.",
     )
     similarity_metrics: SimilarityMetrics = Field(
-        ..., description="A collection of diverse similarity metrics calculated between the essay and reference text.",
+        ...,
+        description="A collection of diverse similarity metrics calculated between the essay and reference text.",
     )
     text_score: SinglePairAnalysisResult = Field(
         ...,
@@ -471,5 +493,6 @@ class EssayScores(BaseModel):
     )
     keyword_matcher: KeywordMatcherScore = Field(..., description="Scores related to keyword matching and coverage.")
     pos_score: Optional[float] = Field(
-        default=0.0, description="Score based on Part-of-Speech (POS) tag patterns or similarity, if calculated.",
+        default=0.0,
+        description="Score based on Part-of-Speech (POS) tag patterns or similarity, if calculated.",
     )

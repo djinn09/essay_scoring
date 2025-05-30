@@ -1,4 +1,5 @@
-"""Calculates a score based on Part-of-Speech (POS) pattern similarity between texts.
+"""
+Calculates a score based on Part-of-Speech (POS) pattern similarity between texts.
 
 This module uses spaCy for POS tagging and word vector similarity. It identifies
 specific POS combinations (triplets like ProperNoun-Verb-Noun, and duplets like
@@ -24,7 +25,8 @@ DUPLET_LENGTH = 2
 
 
 def extract_pos_combinations(text: str) -> list[list[str]]:
-    """Tokenize input text into sentences and extract POS combinations.
+    """
+    Tokenize input text into sentences and extract POS combinations.
 
     - Triplets: (ProperNoun, Verb, Noun)
     - Duplets: (ProperNoun, Verb) or (ProperNoun, Noun).
@@ -64,7 +66,8 @@ def extract_pos_combinations(text: str) -> list[list[str]]:
 
 
 def pos_combinations(sentences: list[str]) -> list[list[str]]:
-    """Extract POS combinations from a list of sentences.
+    """
+    Extract POS combinations from a list of sentences.
 
     Given a list of sentences, process each sentence with spaCy and extract
     specific POS combinations. The extracted combinations are either triplets
@@ -99,19 +102,20 @@ def pos_combinations(sentences: list[str]) -> list[list[str]]:
         # Logic for forming POS combinations based on presence:
         # Form (ProperNoun, Verb) duplets if nouns are absent but proper nouns and verbs are present.
         if proper_nouns and verbs and not nouns:
-            pos_combinations.extend([[pn, v] for pn in proper_nouns for v in verbs])
+            pos_combinations.extend([[on, v] for on in proper_nouns for v in verbs])
         # Form (ProperNoun, Noun) duplets if verbs are absent but proper nouns and nouns are present.
         elif proper_nouns and nouns and not verbs:
-            pos_combinations.extend([[pn, n] for pn in proper_nouns for n in nouns])
+            pos_combinations.extend([[on, n] for on in proper_nouns for n in nouns])
         # Form (ProperNoun, Verb, Noun) triplets if all three POS types are present.
         elif proper_nouns and verbs and nouns:
-            pos_combinations.extend([[pn, v, n] for pn in proper_nouns for v in verbs for n in nouns])
+            pos_combinations.extend([[on, v, n] for on in proper_nouns for v in verbs for n in nouns])
 
     return pos_combinations
 
 
 def match_triplet(triplet_a: tuple[str, str, str], triplet_b: tuple[str, str, str]) -> bool:
-    """Compare two POS triplets for similarity.
+    """
+    Compare two POS triplets for similarity.
 
     - Exact match across all three elements
     - If exact mismatch, check spaCy vector similarity for verb and noun.
@@ -135,7 +139,8 @@ def match_triplet(triplet_a: tuple[str, str, str], triplet_b: tuple[str, str, st
 
 
 def match_duplet(elem1_a: str, elem2_a: str, elem1_b: str, elem2_b: str) -> bool:
-    """Compare two POS duplets for similarity.
+    """
+    Compare two POS duplets for similarity.
 
     - Exact match across both elements
     - If exact mismatch, check spaCy vector similarity for second element.
@@ -151,15 +156,15 @@ def match_duplet(elem1_a: str, elem2_a: str, elem1_b: str, elem2_b: str) -> bool
 
 
 def _match_triplet_with_logging(model_combo: list[str], cand_combo: list[str], i: int, j: int) -> bool:
-    pn_m, v_m, n_m = model_combo
-    pn_c, v_c, n_c = cand_combo
+    on_m, v_m, n_m = model_combo
+    on_c, v_c, n_c = cand_combo
     try:
         sim_verb = nlp(v_m).similarity(nlp(v_c)) if nlp else 0.0
         sim_noun = nlp(n_m).similarity(nlp(n_c)) if nlp else 0.0
     except Exception:
         sim_verb = sim_noun = 0.0
     print(f"[Triplet] Model combo {i} vs Cand combo {j} -> VerbSim={sim_verb:.3f}, NounSim={sim_noun:.3f}")
-    return match_triplet((pn_m, v_m, n_m), (pn_c, v_c, n_c))
+    return match_triplet((on_m, v_m, n_m), (on_c, v_c, n_c))
 
 
 def _match_duplet_with_logging(
@@ -179,7 +184,8 @@ def _match_duplet_with_logging(
 
 
 def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]]) -> float:
-    """Compute an overlap score based on matching POS combinations.
+    """
+    Compute an overlap score based on matching POS combinations.
 
     The score is the fraction of POS combinations from the `model_list` that
     find a match in the `cand_list`. A model combination is considered matched
@@ -202,18 +208,23 @@ def calculate_pos_overlap(model_list: list[list[str]], cand_list: list[list[str]
     matched_model_combos = 0
     for i, model_combo in enumerate(model_list):
         for j, cand_combo in enumerate(cand_list):
-            if (len(model_combo) == TRIPLET_LENGTH and \
-               len(cand_combo) == TRIPLET_LENGTH and \
-               _match_triplet_with_logging(model_combo, cand_combo, i, j)) or (len(model_combo) == DUPLET_LENGTH and \
-                 len(cand_combo) == DUPLET_LENGTH and \
-                 _match_duplet_with_logging(model_combo, cand_combo, i, j)):
+            if (
+                len(model_combo) == TRIPLET_LENGTH
+                and len(cand_combo) == TRIPLET_LENGTH
+                and _match_triplet_with_logging(model_combo, cand_combo, i, j)
+            ) or (
+                len(model_combo) == DUPLET_LENGTH
+                and len(cand_combo) == DUPLET_LENGTH
+                and _match_duplet_with_logging(model_combo, cand_combo, i, j)
+            ):
                 matched_model_combos += 1
                 break
     return matched_model_combos / len(model_list) if model_list else 0.0
 
 
 def score_pos(model_text: str, candidate_text: str) -> float:
-    """Score texts based on Part-of-Speech (POS) pattern similarity.
+    """
+    Score texts based on Part-of-Speech (POS) pattern similarity.
 
     - Extract POS combinations from both texts
     - Calculate and log overlap score details
@@ -240,14 +251,12 @@ if __name__ == "__main__":
             (
                 "Dr. John Smith presented his new findings from the research. "
                 "He said the project was a success because the team worked hard.",
-                "John Smith talked about the findings. Smith mentioned the project succeeded. "
-                "The group was diligent.",
+                "John Smith talked about the findings. Smith mentioned the project succeeded. The group was diligent.",
             ),
             (
                 "The company launched its innovative product. The CEO, Mrs. Davis, "
                 "explained that it would revolutionize the market.",
-                "A new device was revealed by the firm. Davis spoke about the plan. "
-                "It is a game changer.",
+                "A new device was revealed by the firm. Davis spoke about the plan. It is a game changer.",
             ),
             ("The cat sat on the mat.", "The dog barked at the moon."),
             ("John saw Mary.", "Hello there."),

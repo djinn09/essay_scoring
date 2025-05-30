@@ -1,4 +1,5 @@
-"""Orchestrates the essay scoring process by integrating various feature extractors and similarity calculators.
+"""
+Orchestrates the essay scoring process by integrating various feature extractors and similarity calculators.
 
 This module defines the main `score_essay` function, which takes an essay and a
 reference text, and returns a comprehensive set of scores encapsulated in the
@@ -20,7 +21,8 @@ from text_features import SinglePairAnalysisInput, run_single_pair_text_analysis
 
 
 def score_essay(essay: str, reference: str) -> EssayScores:
-    """Scores an essay against a reference text using a variety of metrics.
+    """
+    Scores an essay against a reference text using a variety of metrics.
 
     This function computes:
     - Semantic similarity (cosine similarity using Sentence Transformers).

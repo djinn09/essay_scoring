@@ -52,7 +52,7 @@ A Python library providing a comprehensive suite of tools for various text simil
     *   `preprocess.py`: Contains various text preprocessing utilities used by different modules.
     *   `config.py` & `settings.py`: Manage application configuration, including model paths, parameters for algorithms, and global initialization of models like SentenceTransformers and spaCy.
     *   `app_types.py`: Defines Pydantic models for data structures (inputs, outputs, configurations) used throughout the project, ensuring data consistency.
-*   **Logging:** Logging is set up in `settings.py`, intended to use a utility from `logger_utill.py` (if available) or falls back to standard Python logging.
+*   **Logging:** Logging is set up in `settings.py`, intended to use a utility from `logger_utils.py` (if available) or falls back to standard Python logging.
 
 ## Installation and Setup
 
@@ -162,7 +162,7 @@ Many modules contain their own executable blocks (`if __name__ == "__main__":`) 
 To integrate this toolkit into your own project, you can import the necessary classes and functions from the various modules. For example, to use the AMR similarity calculator:
 
 ```python
-from amr_similarity import AMRSimilarityCalculator, STOG_MODEL 
+from amr_similarity import AMRSimilarityCalculator, STOG_MODEL
 # Note: STOG_MODEL is loaded within amr_similarity.py using a hardcoded path by default.
 # Ensure this path is correct or modify the loading mechanism.
 

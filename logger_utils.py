@@ -1,4 +1,5 @@
 """Utility functions for configuring and managing global application logging."""
+
 # logger_utils.py
 from __future__ import annotations
 
@@ -28,7 +29,8 @@ def setup_global_logger(
     *,
     force_basic_logging: bool = False,
 ) -> None:
-    """Configure the global root logger with either RichHandler or basic logging.
+    """
+    Configure the global root logger with either RichHandler or basic logging.
 
     This function clears existing handlers on the root logger, sets the specified
     log level, and configures either a RichHandler (if 'rich' is available and
@@ -82,7 +84,8 @@ def setup_global_logger(
 
 
 def get_separator_func() -> Callable[[], None]:
-    """Return the currently configured separator function.
+    """
+    Return the currently configured separator function.
 
     The separator function is used to print a visual separator line in the logs,
     and its implementation (rich-based or basic logging-based) is determined

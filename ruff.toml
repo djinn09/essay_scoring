@@ -1,11 +1,14 @@
 
-# Assume Python 3.7
-target-version = "py37"
+target-version = "py312"
 line-length = 120
 indent-width = 4
 
-select = ["ALL"]
-ignore = [
+
+# Like Black, use double quotes for strings.
+format.quote-style = "double"
+
+lint.select = ["ALL"]
+lint.ignore = [
     "UP006",
     "ERA001",
     "UP007",
@@ -15,4 +18,13 @@ ignore = [
     "BLE001",
     "E731",
     "T201",
+    "D212",
+    "D203",
+    # need to be removed following
+    "C901",
+    "PLR0912",
+    "PLR0915",
+    "COM812"
 ]
+
+format.docstring-code-line-length = "dynamic"

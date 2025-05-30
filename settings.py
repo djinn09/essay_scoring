@@ -1,9 +1,10 @@
-"""Settings and Global Initialization Module for Essay Grading.
+"""
+Settings and Global Initialization Module for Essay Grading.
 
 This module is responsible for:
 1. Retrieving application-wide configuration settings using the `config.py` module.
-2. Setting up global logging using a utility from `logger_utill.py`.
-   (Note: `logger_utill.py` must be present in the project).
+2. Setting up global logging using a utility from `logger_utils.py`.
+   (Note: `logger_utils.py` must be present in the project).
 3. Initializing and making globally available the primary SentenceTransformer model
    used for semantic similarity calculations.
 4. Initializing a default configuration for `SimilarityCalculator`.
@@ -20,9 +21,9 @@ from sentence_transformers import SentenceTransformer
 from app_types import SimilarityCalculatorConfig  # Pydantic model for SimilarityCalculator configuration.
 from config import get_settings  # Function to load comprehensive application settings.
 
-# The following import assumes `logger_utill.py` exists and provides `setup_global_logger`.
-# If `logger_utill.py` is missing, this line will cause an ImportError.
-from logger_utill import setup_global_logger  # Utility for global logger configuration.
+# The following import assumes `logger_utils.py` exists and provides `setup_global_logger`.
+# If `logger_utils.py` is missing, this line will cause an ImportError.
+from logger_utils import setup_global_logger  # Utility for global logger configuration.
 
 # Load application settings from config.py (which handles .env, YAML, etc.)
 settings = get_settings()
@@ -32,18 +33,17 @@ log_level_to_use = os.getenv("LOG_LEVEL", settings.app.log_level).upper()
 
 # --- Global Logger Setup ---
 # This sets up the root logger for the application.
-# It relies on `setup_global_logger` from `logger_utill.py`.
-# If `logger_utill.py` or the function is missing, this will fail.
+# It relies on `setup_global_logger` from `logger_utils.py`.
+# If `logger_utils.py` or the function is missing, this will fail.
 try:
     setup_global_logger(
         log_level=log_level_to_use,
-        app_name=settings.app.name, # Use app name from settings for the logger.
+        app_name=settings.app.name,  # Use app name from settings for the logger.
     )
 except NameError:
-    logging.basicConfig(level=log_level_to_use) # Fallback to basicConfig if setup_global_logger is not found
+    logging.basicConfig(level=log_level_to_use)  # Fallback to basicConfig if setup_global_logger is not found
     logging.warning(
-        "`setup_global_logger` not found (likely `logger_utill.py` is missing). "
-        "Using basic logging configuration.",
+        "`setup_global_logger` not found (likely `logger_utils.py` is missing). Using basic logging configuration.",
     )
 except Exception:
     logging.basicConfig(level=log_level_to_use)
@@ -80,7 +80,7 @@ except Exception:
         f"Failed to initialize global semantic model '{settings.semantic.model_name}'. "
         f"Semantic similarity features will likely fail.",
     )
-    semantic_model = None # Ensure variable exists even if loading fails.
+    semantic_model = None  # Ensure variable exists even if loading fails.
 
 
 # --- Initialize Default SimilarityCalculator Configuration ---

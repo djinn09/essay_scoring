@@ -1,4 +1,5 @@
-"""A module for grading essays based on their semantic similarity to a set of example essays.
+"""
+A module for grading essays based on their semantic similarity to a set of example essays.
 
 Example Essays
 -------------
