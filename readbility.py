@@ -1,4 +1,5 @@
-"""Module provides utilities for calculating and analyzing readability metrics.
+"""
+Module provides utilities for calculating and analyzing readability metrics.
 
 It includes:
 - Pydantic models for raw and normalized readability metrics.
@@ -28,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 class BaseReadabilityMetrics(BaseModel):
-    """Base model for readability metrics.
+    """
+    Base model for readability metrics.
 
     Defines common fields and validators. This can be inherited by Raw and
     Normalized metric models.
@@ -93,7 +95,8 @@ class BaseReadabilityMetrics(BaseModel):
 
 
 class ReadabilityMetricsRaw(BaseReadabilityMetrics):
-    """Data model for storing raw readability metrics.
+    """
+    Data model for storing raw readability metrics.
 
     Calculated for a given text. Inherits fields and validators from
     BaseReadabilityMetrics.
@@ -101,7 +104,8 @@ class ReadabilityMetricsRaw(BaseReadabilityMetrics):
 
 
 class ReadabilityMetricsNormalized(BaseReadabilityMetrics):
-    """Data model for storing normalized readability metrics.
+    """
+    Data model for storing normalized readability metrics.
 
     E.g., standardized. The values will be scaled, but the structure
     matches the raw metrics. Inherits fields and validators from
@@ -121,7 +125,8 @@ class ReadabilityMetricsNormalized(BaseReadabilityMetrics):
 
 
 class MetricDifferencesRaw(BaseModel):
-    """Data model for storing absolute differences.
+    """
+    Data model for storing absolute differences.
 
     Between two sets of raw readability metrics. All difference values
     are non-negative floats.
@@ -161,7 +166,8 @@ class ReadabilityAnalysisResult(BaseModel):
 
 
 def get_readability_metrics(text: str) -> ReadabilityMetricsRaw:
-    """Compute a set of raw readability metrics for a given text.
+    """
+    Compute a set of raw readability metrics for a given text.
 
     Uses the `textstat` library.
 
@@ -284,7 +290,8 @@ def calculate_euclidean_distance(
     metrics1: Union[ReadabilityMetricsRaw, ReadabilityMetricsNormalized],
     metrics2: Union[ReadabilityMetricsRaw, ReadabilityMetricsNormalized],
 ) -> float:
-    """Compute the Euclidean (L2) distance between two feature vectors.
+    """
+    Compute the Euclidean (L2) distance between two feature vectors.
 
     Feature vectors are represented by ReadabilityMetrics Pydantic models.
 
@@ -310,7 +317,8 @@ def calculate_manhattan_distance(
     metrics1: Union[ReadabilityMetricsRaw, ReadabilityMetricsNormalized],
     metrics2: Union[ReadabilityMetricsRaw, ReadabilityMetricsNormalized],
 ) -> float:
-    """Compute the Manhattan (L1) distance between two feature vectors.
+    """
+    Compute the Manhattan (L1) distance between two feature vectors.
 
     Feature vectors are represented by ReadabilityMetrics Pydantic models.
 
@@ -336,7 +344,8 @@ def compare_raw_metrics_absolute_diff(
     metrics1: ReadabilityMetricsRaw,
     metrics2: ReadabilityMetricsRaw,
 ) -> MetricDifferencesRaw:
-    """Compute absolute differences between raw scores.
+    """
+    Compute absolute differences between raw scores.
 
     Scores are from two ReadabilityMetricsRaw objects. This is useful
     for direct interpretability of score differences.
@@ -367,7 +376,8 @@ def perform_readability_analysis(
     model_text: str,
     additional_texts_for_corpus: Optional[list[str]] = None,
 ) -> ReadabilityAnalysisResult:
-    """Perform a readability analysis comparing a student text to a model text.
+    """
+    Perform a readability analysis comparing a student text to a model text.
 
     Args:
         student_text: The text written by the student.
@@ -404,16 +414,44 @@ def perform_readability_analysis(
         corpus_texts.extend(additional_texts_for_corpus)
 
     corpus_raw_metrics: list[ReadabilityMetricsRaw] = []
+    # Define default zero metrics once for reuse in case of errors
+    default_zero_metrics = ReadabilityMetricsRaw(
+        flesch_reading_ease=0.0,
+        flesch_kincaid_grade=0.0,
+        smog_index=0.0,
+        gunning_fog=0.0,
+        dale_chall=0.0,
+        automated_readability_index=0.0,
+        coleman_liau_index=0.0,
+        linsear_write_formula=0.0,
+        difficult_words=0,
+        sentence_count=0,
+        avg_sentence_length=0.0,
+        syllable_count=0,
+        lexicon_count=0,
+    )
+
     for i, text_item in enumerate(corpus_texts):
         try:
-            corpus_raw_metrics.append(get_readability_metrics(text_item))
-        except Exception:
+            # Pre-check for common invalid inputs not robustly handled by textstat or to avoid exceptions
+            if not isinstance(text_item, str) or not text_item.strip():
+                logger.warning(
+                    f"Corpus text at index {i} is invalid (None, empty, or whitespace). "
+                    f"Using default zero metrics. Text preview: '{str(text_item)[:50]}...'",
+                )
+                # get_readability_metrics already handles empty/whitespace by returning defaults,
+                # but this explicit check handles None or other non-string types more gracefully
+                # before they hit get_readability_metrics, which would raise TypeError for non-string.
+                raw_metrics = default_zero_metrics
+            else:
+                raw_metrics = get_readability_metrics(text_item)
+            corpus_raw_metrics.append(raw_metrics)
+        except Exception:  # Individual text items can fail processing; loop must continue with placeholder.
             logger.exception(
-                f"Could not get raw metrics for corpus text at index {i}: '{text_item[:50]}...'.",
+                f"Could not get raw metrics for corpus text at index {i}: '{str(text_item)[:50]}...'. "
+                f"Appending default zero metrics.",
             )
-            # Optionally skip this text or handle error
-            # For now, we'll let it fail if any corpus text metric generation fails,
-            # or one could append a default zero metric model.
+            corpus_raw_metrics.append(default_zero_metrics)  # Ensure list correspondence
 
     norm_student_metrics: Optional[ReadabilityMetricsNormalized] = None
     norm_model_metrics: Optional[ReadabilityMetricsNormalized] = None
@@ -438,9 +476,9 @@ def perform_readability_analysis(
                 logger.error(
                     "Normalization returned a different number of items than input.Skipping normalized metrics.",
                 )
-        except ValueError as e_norm_value:  # Catch errors from normalize_metrics (e.g., zero variance)
+        except ValueError:  # Catch errors from normalize_metrics (e.g., zero variance)
             logger.warning(
-                f"Failed to normalize metrics due to ValueError: {e_norm_value}. Normalized distances will be None.",
+                "Failed to normalize metrics due to ValueError. Normalized distances will be None.",
                 exc_info=True,
             )
         except Exception:  # Catch any other unexpected errors during normalization
