@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "donjayamanne.githistory",
+        "eamodio.gitlens",
+        "njpwerner.autodocstring",
+        "redhat.vscode-yaml"
+    ]
+}
