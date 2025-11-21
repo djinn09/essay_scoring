@@ -34,6 +34,9 @@ A Python library providing a comprehensive suite of tools for various text simil
 *   **POS-based Similarity (`pos_score.py`):**
     *   Extracts and compares specific Part-of-Speech (POS) patterns (triplets and duplets like Noun-Verb-Noun) between texts.
     *   Uses spaCy for POS tagging and word vector similarity for comparing pattern components.
+*   **Readability Metrics (`readability.py`):**
+    *   Calculates various readability scores (e.g., Flesch Reading Ease, Flesch-Kincaid Grade, SMOG Index, Gunning Fog, Dale-Chall, etc.) using `textstat`.
+    *   Provides functionality to normalize metrics and calculate distances (Euclidean, Manhattan) between readability feature vectors of different texts.
 *   **(Optional/Disabled by default) spaCy-based Semantic Graphs:**
     *   Functionality exists in `text_features.py` for creating semantic graphs from spaCy dependency parses and calculating similarity between them (currently commented out in main analysis pipelines).
 *   **Configurable:** Uses Pydantic models for structured input/output. Key parameters for various components (TF-IDF, semantic models, plagiarism detection) can be configured via YAML files and environment variables, managed by `config.py` and `settings.py`.
@@ -49,6 +52,7 @@ A Python library providing a comprehensive suite of tools for various text simil
     *   `keyword_matcher.py`: Implements keyword extraction, coverage scoring, and vocabulary cosine similarity.
     *   `coreference.py`: Provides rule-based coreference resolution.
     *   `pos_score.py`: Calculates similarity based on POS patterns.
+    *   `readability.py`: Calculates readability metrics and distances.
     *   `preprocess.py`: Contains various text preprocessing utilities used by different modules.
     *   `config.py` & `settings.py`: Manage application configuration, including model paths, parameters for algorithms, and global initialization of models like SentenceTransformers and spaCy.
     *   `app_types.py`: Defines Pydantic models for data structures (inputs, outputs, configurations) used throughout the project, ensuring data consistency.
@@ -156,6 +160,7 @@ Many modules contain their own executable blocks (`if __name__ == "__main__":`) 
 *   `python keyword_matcher.py`: Illustrates keyword extraction and matching.
 *   `python coreference.py`: Demonstrates the rule-based coreference resolution system (uses a spaCy model loaded within the script).
 *   `python pos_score.py`: Shows POS-based similarity scoring (uses a spaCy model loaded via `config.py`).
+*   `python readability.py`: Shows examples of calculating readability metrics for texts.
 *   `python config.py`: Contains an example that tests and demonstrates the configuration loading mechanism itself (e.g., from YAML and .env files).
 
 ### Using as a Library

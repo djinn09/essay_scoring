@@ -47,8 +47,6 @@ try:
     _rich_available = True
 except ImportError:
     _rich_available = False
-    # No immediate raise here; allow the script to run with standard logging if rich is missing
-    # The example usage section will handle the ImportError for rich.console if needed
 
 
 # --- Global Resources ---
@@ -56,12 +54,12 @@ _LEMMA_INIT_FAILED = False
 _GLOBAL_LEMMATIZER: Optional[WordNetLemmatizer] = None
 try:
     _GLOBAL_LEMMATIZER = WordNetLemmatizer()
-    _ = _GLOBAL_LEMMATIZER.lemmatize("tests")  # Check if it works
+    _ = _GLOBAL_LEMMATIZER.lemmatize("tests")
 except LookupError as e:
     print(f"[ERROR] NLTK LookupError initializing WordNetLemmatizer: {e}")
     print("        Ensure 'wordnet' and 'omw-1.4' NLTK data are downloaded.")
     _LEMMA_INIT_FAILED = True
-except Exception as e:  # pylint: disable=broad-except
+except Exception as e:
     print(f"[ERROR] Unexpected error initializing WordNetLemmatizer: {e}")
     _LEMMA_INIT_FAILED = True
 
@@ -88,11 +86,6 @@ class KeywordMatcher:
 
     Preprocessing steps include lowercasing, punctuation removal, tokenization,
     stopword removal, and optional lemmatization.
-
-    **Note:** This class relies on NLTK for various NLP tasks. Ensure necessary
-    NLTK data resources (e.g., 'punkt' for tokenization, 'stopwords',
-    'wordnet' & 'omw-1.4' for lemmatization, 'averaged_perceptron_tagger' for POS
-    tagging) are pre-downloaded. Refer to the module docstring for download commands.
     """
 
     def __init__(
@@ -106,21 +99,17 @@ class KeywordMatcher:
             config (Optional[KeywordMatcherConfig]): Configuration settings for the matcher.
                 If None, `KeywordMatcherConfig` defaults are used. This config controls
                 lemmatization, POS tagging, allowed POS tags, and custom stopwords.
-
         """
-        if not _rich_available:  # Check if rich library is available for enhanced logging.
+        if not _rich_available:
             logger.warning("Module 'rich' for enhanced logging not found. Logging will use standard format.")
 
-        # This warning is important as NLTK data is a common setup issue.
         logger.warning(
             "[bold yellow]Initializing KeywordMatcher. Ensure required NLTK data "
             "(punkt, stopwords, wordnet, omw-1.4, averaged_perceptron_tagger) is downloaded![/bold yellow]",
         )
 
-        self.config = config or KeywordMatcherConfig()  # Use provided config or default.
+        self.config = config or KeywordMatcherConfig()
 
-        # Determine the set of POS tags to be used if POS tagging is enabled.
-        # If POS tagging is on but no specific tags are provided, use defaults.
         actual_allowed_pos_tags = self.config.allowed_pos_tags
         if self.config.use_pos_tagging and not self.config.allowed_pos_tags:
             logger.info(
@@ -130,7 +119,6 @@ class KeywordMatcher:
             actual_allowed_pos_tags = DEFAULT_ALLOWED_POS_TAGS
         self.resolved_allowed_pos_tags: Optional[set[str]] = actual_allowed_pos_tags
 
-        # Determine if lemmatization can be effectively used, based on config and global lemmatizer status.
         self.effective_use_lemmatization = self.config.use_lemmatization and not _LEMMA_INIT_FAILED
         if self.config.use_lemmatization and _LEMMA_INIT_FAILED:
             logger.error(
@@ -139,25 +127,23 @@ class KeywordMatcher:
                 "Lemmatization will be DISABLED for keyword coverage scoring.",
             )
 
-        # Load NLTK's English stopwords and combine with any custom stopwords from config.
         try:
             nltk_stopwords = set(stopwords.words("english"))
-            self._stopwords_loaded = True  # Flag indicating NLTK stopwords were loaded.
-        except LookupError:  # NLTK's 'stopwords' resource might not be downloaded.
+            self._stopwords_loaded = True
+        except LookupError:
             logger.exception(
                 "Failed to load NLTK English stopwords (NLTK data 'stopwords' likely missing). "
                 "Proceeding with only custom stopwords (if any) or no stopwords.",
             )
             nltk_stopwords = set()
             self._stopwords_loaded = False
-        except Exception:  # Catch any other unexpected error during stopword loading.
+        except Exception:
             logger.exception("An unexpected error occurred while loading NLTK stopwords.")
             nltk_stopwords = set()
             self._stopwords_loaded = False
 
-        # Combine NLTK stopwords with custom stopwords provided in the configuration.
         self.stop_words = nltk_stopwords.union(self.config.custom_stop_words or set())
-        if not self.stop_words and self._stopwords_loaded:  # NLTK loaded but custom resulted in empty
+        if not self.stop_words and self._stopwords_loaded:
             logger.info("NLTK stopwords loaded, but custom stop words resulted in an empty final set. This is unusual.")
         elif not self.stop_words and not self._stopwords_loaded:
             logger.warning(
@@ -170,12 +156,12 @@ class KeywordMatcher:
             f"POS Tagging (for keyword extraction): {self.config.use_pos_tagging}, "
             f"NLTK Stopwords Loaded: {self._stopwords_loaded}."
         )
-        if self.config.use_pos_tagging:  # Log allowed POS tags only if POS tagging is active.
+        if self.config.use_pos_tagging:
             log_message += f" Allowed POS Tags: {self.resolved_allowed_pos_tags or 'None (defaulting or error)'}"
         logger.info(log_message)
 
     @staticmethod
-    @lru_cache(maxsize=128)  # Cache results for previously seen texts.
+    @lru_cache(maxsize=128)
     def _preprocess_text(text: str, stop_words_set: frozenset[str]) -> list[str]:
         """
         Perform basic preprocessing on a text string.
@@ -193,32 +179,28 @@ class KeywordMatcher:
         Returns:
             list[str]: A list of processed (cleaned, tokenized, filtered) tokens.
                        Returns an empty list for invalid input or if NLTK data (e.g., 'punkt') is missing.
-
         """
-        if not isinstance(text, str) or not text.strip():  # Handle empty or non-string input.
+        if not isinstance(text, str) or not text.strip():
             logger.debug("Preprocessing received empty or invalid text. Returning empty token list.")
             return []
         try:
-            # Step 1 & 2: Lowercase and remove punctuation.
             cleaned_text = text.lower().translate(PUNCTUATION_TABLE)
-            # Step 3: Tokenize. Requires 'punkt' NLTK data.
             tokens = word_tokenize(cleaned_text)
-            # Step 4: Filter out stopwords and non-alphanumeric tokens.
             processed_tokens = [token for token in tokens if token.isalnum() and token not in stop_words_set]
             logger.debug(f"Preprocessing result for text '{text[:30]}...': {len(processed_tokens)} tokens returned.")
             return processed_tokens
-        except LookupError:  # NLTK's 'punkt' tokenizer data might be missing.
+        except LookupError:
             logger.exception(
                 f"NLTK LookupError during preprocessing (likely 'punkt' data missing for word_tokenize). "
                 f"Text: '{text[:50]}...'",
             )
-            return []  # Return empty list on critical NLTK data error.
-        except Exception:  # Catch any other unexpected errors.
+            return []
+        except Exception:
             logger.exception(f"Unexpected error during basic preprocessing of text: '{text[:50]}...'.")
             return []
 
     @staticmethod
-    @lru_cache(maxsize=128)  # Cache results for previously seen token tuples.
+    @lru_cache(maxsize=128)
     def _normalize_tokens(
         tokens: tuple[str, ...],
         *,
@@ -236,55 +218,50 @@ class KeywordMatcher:
         Returns:
             tuple[str, ...]: A tuple of normalized (lemmatized) tokens. Returns the original
                              tokens if lemmatization is disabled or the lemmatizer is not functional.
-
         """
-        # Check if lemmatization should be applied and if the global lemmatizer is available.
         if not use_lemmatization or lemmatizer is None:
-            return tokens  # Return original tokens if no lemmatization.
+            return tokens
         try:
-            # Lemmatize each token. Requires 'wordnet' and 'omw-1.4' NLTK data.
             normalized = tuple(lemmatizer.lemmatize(token) for token in tokens)
             logger.debug(f"Lemmatized {len(tokens)} tokens successfully.")
             return normalized
-        except LookupError:  # NLTK data for lemmatization might be missing.
+        except LookupError:
             logger.exception(
                 "NLTK LookupError during lemmatization (likely 'wordnet' or "
                 f"'omw-1.4' data missing). Tokens: {tokens[:10]}",
             )
-            return tokens  # Return original tokens if lemmatization fails.
-        except Exception:  # Catch any other unexpected errors.
+            return tokens
+        except Exception:
             logger.exception(f"Unexpected error during lemmatization of {len(tokens)} tokens.")
             return tokens
 
     @staticmethod
-    @lru_cache(maxsize=128)  # Cache results for previously seen token tuples.
+    @lru_cache(maxsize=128)
     def _get_pos_tags(tokens: tuple[str, ...]) -> list[tuple[str, str]]:
         """
         Perform Part-of-Speech (POS) tagging on a tuple of tokens.
 
         Args:
-            tokens (tuple[str, ...): A tuple of string tokens.
+            tokens (tuple[str, ...]): A tuple of string tokens.
 
         Returns:
             list[tuple[str, str]]: A list of (token, POS_tag) tuples. Returns an empty list
                                    if input tokens are empty or if POS tagging fails (e.g.,
                                    NLTK 'averaged_perceptron_tagger' data missing).
-
         """
-        if not tokens:  # No tokens to tag.
+        if not tokens:
             return []
         try:
-            # Perform POS tagging using NLTK's default tagger. Requires 'averaged_perceptron_tagger'.
-            tags = pos_tag(list(tokens))  # pos_tag expects a list.
+            tags = pos_tag(list(tokens))
             logger.debug(f"POS tagged {len(tokens)} tokens successfully.")
             return tags
-        except LookupError:  # NLTK data for POS tagging might be missing.
+        except LookupError:
             logger.exception(
                 f"NLTK LookupError during POS tagging (likely 'averaged_perceptron_tagger' data missing). "
                 f"Tokens: {tokens[:10]}",
             )
-            return []  # Return empty list on critical NLTK data error.
-        except Exception:  # Catch any other unexpected errors.
+            return []
+        except Exception:
             logger.exception(f"Unexpected error during POS tagging of {len(tokens)} tokens.")
             return []
 
@@ -305,21 +282,17 @@ class KeywordMatcher:
         Returns:
             set[str]: A set of unique extracted keywords. Returns an empty set if no
                       keywords can be extracted (e.g., empty input, processing errors).
-
         """
-        # Step 1: Perform initial preprocessing (lowercase, punctuation, tokenize, stopwords).
-        # Pass self.stop_words (as frozenset for caching) to the static method.
         processed_tokens_list = KeywordMatcher._preprocess_text(paragraph_a, frozenset(self.stop_words))
         if not processed_tokens_list:
             logger.warning("Keyword extraction from Paragraph A failed: Preprocessing returned no tokens.")
-            return set()  # No tokens to process further.
+            return set()
 
-        processed_tokens_tuple = tuple(processed_tokens_list)  # Convert to tuple for caching in subsequent steps.
+        processed_tokens_tuple = tuple(processed_tokens_list)
         keywords: set[str] = set()
 
-        # Step 2: Optional POS tagging for keyword filtering.
         if self.config.use_pos_tagging:
-            if not self.resolved_allowed_pos_tags:  # Should not happen if __init__ logic is correct.
+            if not self.resolved_allowed_pos_tags:
                 logger.error(
                     "POS tagging is enabled, but no allowed POS tags are set. "
                     "Cannot extract POS-based keywords from Paragraph A.",
@@ -327,10 +300,8 @@ class KeywordMatcher:
             else:
                 tagged_tokens = KeywordMatcher._get_pos_tags(processed_tokens_tuple)
                 if tagged_tokens:
-                    # Filter tokens based on whether their POS tag is in the allowed set.
                     pos_filtered_tokens = [word for word, tag in tagged_tokens if tag in self.resolved_allowed_pos_tags]
                     if pos_filtered_tokens:
-                        # Step 3 (for POS path): Normalize (lemmatize) the POS-filtered tokens.
                         keywords = set(
                             KeywordMatcher._normalize_tokens(
                                 tuple(pos_filtered_tokens),
@@ -340,10 +311,9 @@ class KeywordMatcher:
                         )
                     else:
                         logger.warning("No tokens from Paragraph A matched the allowed POS tags after POS tagging.")
-                else:  # POS tagging itself failed (e.g., missing NLTK data).
+                else:
                     logger.error("Keyword extraction from Paragraph A failed: POS tagging returned no results.")
         else:
-            # Step 3 (for non-POS path): Directly normalize (lemmatize) the preprocessed tokens.
             keywords = set(
                 KeywordMatcher._normalize_tokens(
                     processed_tokens_tuple,
@@ -352,7 +322,6 @@ class KeywordMatcher:
                 ),
             )
 
-        # Final logging based on outcome.
         if not keywords:
             logger.warning("No keywords were extracted from Paragraph A after all processing steps.")
         else:
@@ -370,25 +339,17 @@ class KeywordMatcher:
         Returns:
             MatcherScores: A Pydantic model containing:
                 - `matched_keywords`: List of keywords from A found in B.
-                - `keywords_matcher_result`: A nested model with:
-                    - `keywords_from_a_count`: Total unique keywords from A.
-                    - `matched_keyword_count`: Number of A's keywords found in B.
-                    - `keyword_coverage_score`: Proportion of A's keywords in B.
-                    - `vocabulary_cosine_similarity`: Cosine similarity of A and B's vocabularies.
-
+                - `keywords_matcher_result`: A nested model with scores.
         """
         logger.info("Starting keyword matching and scoring for Paragraph A vs. Paragraph B.")
         logger.debug(f"Paragraph A (first 60 chars): '{paragraph_a[:60]}...'")
         logger.debug(f"Paragraph B (first 60 chars): '{paragraph_b[:60]}...'")
 
-        # Calculate vocabulary cosine similarity first (independent of keyword extraction method for A).
         vocab_cosine_score = self._calculate_vocab_cosine(paragraph_a, paragraph_b)
 
-        # Extract keywords from Paragraph A based on configuration.
         keywords_a_set = self._extract_keywords_from_a(paragraph_a)
         keywords_from_a_count_val = len(keywords_a_set)
 
-        # Initialize coverage components; will be updated if keywords_a_set is not empty.
         matched_keywords_list: list[str] = []
         matched_keyword_count_val: int = 0
         keyword_coverage_score_val: float = 0.0
@@ -398,13 +359,11 @@ class KeywordMatcher:
                 "No keywords extracted from Paragraph A. Keyword coverage score will be 0.",
             )
         else:
-            # Calculate keyword coverage components if keywords were extracted from A.
             coverage_components = self._calculate_keyword_coverage_components(keywords_a_set, paragraph_b)
             matched_keywords_list = coverage_components["matched_keywords"]
             matched_keyword_count_val = coverage_components["matched_keyword_count"]
             keyword_coverage_score_val = coverage_components["keyword_coverage_score"]
 
-        # Construct the nested KeywordMatcherScore Pydantic model.
         keyword_scores = KeywordMatcherScore(
             keywords_from_a_count=keywords_from_a_count_val,
             matched_keyword_count=matched_keyword_count_val,
@@ -412,7 +371,6 @@ class KeywordMatcher:
             vocabulary_cosine_similarity=vocab_cosine_score,
         )
 
-        # Construct and return the main MatcherScores Pydantic model.
         return MatcherScores(
             matched_keywords=matched_keywords_list,
             keywords_matcher_result=keyword_scores,
@@ -432,48 +390,39 @@ class KeywordMatcher:
         Returns:
             float: The cosine similarity score (0.0 to 1.0). Returns 0.0 if both paragraphs
                    are empty after preprocessing or if there's no shared vocabulary.
-
         """
-        # Preprocess both paragraphs to get lists of filtered tokens.
-        # Pass self.stop_words (as frozenset for caching) to the static method.
         stop_words_fs = frozenset(self.stop_words)
         processed_tokens_a_list = KeywordMatcher._preprocess_text(paragraph_a, stop_words_fs)
         processed_tokens_b_list = KeywordMatcher._preprocess_text(paragraph_b, stop_words_fs)
 
-        # If both paragraphs result in empty token lists (e.g., they were empty or all stopwords).
         if not processed_tokens_a_list and not processed_tokens_b_list:
             logger.warning("Both paragraphs are empty after preprocessing. Vocabulary cosine similarity is 0.")
-            return 0.0  # Or 1.0 if empty sets are considered perfectly similar; 0.0 is common.
+            return 0.0
 
-        # Create sets of unique tokens for each paragraph.
         set_a = set(processed_tokens_a_list)
         set_b = set(processed_tokens_b_list)
 
-        # Create a combined vocabulary (union of unique tokens from both sets).
         combined_vocabulary = set_a.union(set_b)
-        if not combined_vocabulary:  # Should only happen if both set_a and set_b are empty.
+        if not combined_vocabulary:
             logger.debug(
                 "No combined vocabulary for cosine similarity (texts likely empty after processing).",
             )
-            return 0.0  # Cosine is undefined or 0 for two empty sets.
+            return 0.0
 
-        # Create binary vectors representing word presence in each paragraph's vocabulary.
         v_a = [1 if word in set_a else 0 for word in combined_vocabulary]
         v_b = [1 if word in set_b else 0 for word in combined_vocabulary]
 
-        # Calculate dot product and vector norms (magnitudes).
-        dot_product = sum(a_val * b_val for a_val, b_val in zip(v_a, v_b, strict=False))  # Python 3.10+ for strict
-        norm_a = sum(val_a**2 for val_a in v_a) ** 0.5  # Magnitude of vector A
-        norm_b = sum(val_b**2 for val_b in v_b) ** 0.5  # Magnitude of vector B
+        dot_product = sum(a_val * b_val for a_val, b_val in zip(v_a, v_b, strict=False))
+        norm_a = sum(val_a**2 for val_a in v_a) ** 0.5
+        norm_b = sum(val_b**2 for val_b in v_b) ** 0.5
         denominator = norm_a * norm_b
 
-        # Calculate cosine similarity. If denominator is zero (one or both vectors are zero-vectors), score is 0.
         return dot_product / denominator if denominator > 0 else 0.0
 
     def _calculate_keyword_coverage_components(
         self,
-        keywords_a_set: set[str],  # Pre-extracted and normalized keywords from Paragraph A.
-        paragraph_b: str,  # Raw text of Paragraph B.
+        keywords_a_set: set[str],
+        paragraph_b: str,
     ) -> dict[str, Any]:
         """
         Calculate keyword coverage by checking how many keywords from Paragraph A are in Paragraph B.
@@ -483,20 +432,13 @@ class KeywordMatcher:
             paragraph_b (str): The raw text of Paragraph B.
 
         Returns:
-            dict[str, Any]: A dictionary containing:
-                - "matched_keywords": A sorted list of keywords from `keywords_a_set` found in Paragraph B.
-                - "matched_keyword_count": The number of such matched keywords.
-                - "keyword_coverage_score": The proportion of `keywords_a_set` found in Paragraph B.
-
+            dict[str, Any]: A dictionary containing matched keywords, count, and score.
         """
-        # Preprocess Paragraph B (lowercase, punctuation, tokenize, stopwords).
-        # Pass self.stop_words (as frozenset for caching) to the static method.
         processed_tokens_b_list = KeywordMatcher._preprocess_text(paragraph_b, frozenset(self.stop_words))
-        if not processed_tokens_b_list:  # If Paragraph B is empty after preprocessing.
+        if not processed_tokens_b_list:
             logger.warning("Paragraph B is empty after preprocessing. Keyword coverage score is 0.")
             return {"matched_keywords": [], "matched_keyword_count": 0, "keyword_coverage_score": 0.0}
 
-        # Normalize (lemmatize if enabled) tokens of Paragraph B to match normalization of keywords_a_set.
         normalized_tokens_b_set = set(
             KeywordMatcher._normalize_tokens(
                 tuple(processed_tokens_b_list),
@@ -505,16 +447,13 @@ class KeywordMatcher:
             ),
         )
 
-        # Find common keywords by intersecting the set of A's keywords with B's normalized tokens.
         matched_keywords_set = keywords_a_set.intersection(normalized_tokens_b_set)
         num_matches = len(matched_keywords_set)
 
-        # Calculate coverage score: (number of matched keywords) / (total keywords from A).
-        # Handle division by zero if keywords_a_set was empty (though typically checked before calling).
         coverage_score = num_matches / len(keywords_a_set) if keywords_a_set else 0.0
 
         return {
-            "matched_keywords": sorted(matched_keywords_set),  # Return sorted list for consistent output.
+            "matched_keywords": sorted(matched_keywords_set),
             "matched_keyword_count": num_matches,
             "keyword_coverage_score": coverage_score,
         }
@@ -538,7 +477,7 @@ if __name__ == "__main__":
             rich_console_available = True
         except ImportError:
             separator = lambda: print("-" * 80)
-        logger.info("Keyword Matching Example [bold green](Rich logging)[/bold green]")  # Shortened
+        logger.info("Keyword Matching Example [bold green](Rich logging)[/bold green]")
     else:
         logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         separator = lambda: print("-" * 80)
@@ -560,20 +499,18 @@ if __name__ == "__main__":
     def print_match_results(scenario_name: str, results: MatcherScores) -> None:
         """Print the results of keyword matching for a given scenario."""
         logger.info(f"[bold cyan]>>> {scenario_name} Results:[/bold cyan]")
-        # Access scores via the nested model
         scores = results.keywords_matcher_result
         logger.info(f"  Total Keywords from A (for coverage): {scores.keywords_from_a_count}")
         logger.info(f"  Matched Keywords Count: {scores.matched_keyword_count}")
 
         cov_score = scores.keyword_coverage_score
         cov_color = "green" if cov_score > GOOD_KEYWORD_COVERAGE else "yellow" if cov_score > 0 else "red"
-        logger.info(f"  Keyword Coverage: [{cov_color}]{cov_score:.4f}[/{cov_color}]")  # Shortened
+        logger.info(f"  Keyword Coverage: [{cov_color}]{cov_score:.4f}[/{cov_color}]")
 
         cos_score = scores.vocabulary_cosine_similarity
         cos_color = "green" if cos_score > GOOD_VOCAB_COSINE else "yellow" if cos_score > BAD_VOCAB_COSINE else "red"
         logger.info(f"  Vocabulary Cosine Score: [{cos_color}]{cos_score:.4f}[/{cos_color}]")
 
-        # matched_keywords is still directly on MatcherScores
         if results.matched_keywords:
             logger.info(f"  Matched Keywords (for coverage): {results.matched_keywords}")
         else:

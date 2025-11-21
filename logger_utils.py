@@ -19,7 +19,7 @@ except ImportError:
     RichHandler = None
     Console = None
 
-logger = logging.getLogger("my_app")  # Default logger name, can be overridden
+logger = logging.getLogger("my_app")
 _separator_func: Callable[[], None] = lambda: logging.info("-" * 50)
 
 
@@ -44,9 +44,8 @@ def setup_global_logger(
             log message. Defaults to "Application".
         force_basic_logging (bool, optional): If True, forces basic logging even if
             'rich' is available. Defaults to False.
-
     """
-    # Removed global _separator_func to avoid PLW0603 warning
+    global _separator_func
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.root.setLevel(log_level)
@@ -70,7 +69,6 @@ def setup_global_logger(
         initial_logger.info(f"Starting {app_name} [bold green](using Rich logging)[/bold green]")
     else:
         if not _rich_available and not force_basic_logging:
-            # If rich was expected but not found, print a warning or raise error
             print(
                 "WARNING: rich library not found. Falling back to basic logging. "
                 "Install with 'pip install rich' for enhanced output.",
@@ -93,10 +91,5 @@ def get_separator_func() -> Callable[[], None]:
 
     Returns:
         Callable[[], None]: A function that, when called, prints a separator line.
-
     """
     return _separator_func
-
-
-# Expose logging itself so other modules can just import logging from here if they want
-# import logging # This line is already effectively done by `import logging` at the top.
