@@ -45,7 +45,7 @@ class SimilarityMetrics(BaseModel):
     The descriptions aim to clarify the origin or nature of each metric.
     """
 
-    # Basic String / Sequence Metrics (often applied on lowercase, tokenized, or raw strings)
+    # Basic String / Sequence Metrics
     ratio: Optional[float] = Field(
         default=0.0,
         description="Similarity score from difflib.SequenceMatcher.ratio(). Measures likeness of sequences.",
@@ -62,7 +62,7 @@ class SimilarityMetrics(BaseModel):
         default=0.0,
         description="Similarity based on the Longest Common Subsequence (LCS). Score often normalized.",
     )
-    # Q-gram distances measure dissimilarity; lower values mean more similar.
+    # Q-gram distances
     qgram2_distance: Optional[float] = Field(
         default=0.0,
         description="Q-gram distance using character bigrams (n=2). Lower values indicate more similarity.",
@@ -86,8 +86,7 @@ class SimilarityMetrics(BaseModel):
         description="Jaccard similarity calculated on sets of character bigrams (2-grams).",
     )
 
-    # RapidFuzz Metrics (optimized fuzzy string matching)
-    # Scores are typically 0-100 from RapidFuzz, often normalized to 0-1 by dividing by 100.0.
+    # RapidFuzz Metrics
     rfuzz_ratio: Optional[float] = Field(
         default=0.0,
         description="RapidFuzz simple ratio (equivalent to Levenshtein ratio). Normalized to 0-1.",
@@ -116,8 +115,7 @@ class SimilarityMetrics(BaseModel):
         description="RapidFuzz quick ratio, a faster version of simple ratio. Normalized to 0-1.",
     )
 
-    # FuzzyWuzzy Metrics (older library, similar to RapidFuzz but potentially slower)
-    # Scores are typically 0-100, often normalized to 0-1.
+    # FuzzyWuzzy Metrics
     fz_uqratio: Optional[float] = Field(
         default=0.0,
         description="FuzzyWuzzy UQRatio (unicode quick ratio). Normalized to 0-1.",
@@ -127,21 +125,19 @@ class SimilarityMetrics(BaseModel):
         description="FuzzyWuzzy UWRatio (unicode weighted ratio). Normalized to 0-1.",
     )
 
-    # BLEU Score (Bilingual Evaluation Understudy)
-    # Primarily a machine translation metric, adapted here for text similarity.
+    # BLEU Score
     bleu_score: Optional[float] = Field(
         default=0.0,
         description="BLEU score, typically BLEU-4, indicating n-gram overlap. Ranges from 0 to 1.",
     )
 
-    # BM25 Score (Okapi BM25)
-    # A ranking function used in information retrieval, adapted here for similarity. Higher is more similar.
+    # BM25 Score
     bm25: Optional[float] = Field(
         default=0.0,
         description="BM25 relevance score. Typically non-negative; magnitude depends on corpus statistics.",
     )
 
-    # TF-IDF Based Metrics (vector space model comparisons)
+    # TF-IDF Based Metrics
     tfidf_cosine_similarity: Optional[float] = Field(
         default=0.0,
         description=(
@@ -181,19 +177,19 @@ class TfidfConfig(BaseModel):
     """
 
     token_pattern: str = Field(
-        default=r"(?u)\b\w\w+\b",  # Default scikit-learn pattern: unicode words of 2+ chars.
+        default=r"(?u)\b\w\w+\b",
         description="Regular expression denoting what constitutes a 'token'.",
     )
     ngram_range: tuple[int, int] = Field(
-        default=(1, 1),  # Default: unigrams only.
+        default=(1, 1),
         description=(
             "The lower and upper boundary of the range of n-values for different n-grams to be extracted. "
             "E.g., (1, 2) means unigrams and bigrams."
         ),
     )
     max_df: float = Field(
-        default=1.0,  # Default: no upper limit on document frequency.
-        ge=0.0,  # max_df must be between 0.0 and 1.0 (if float) or >= 1 (if int).
+        default=1.0,
+        ge=0.0,
         le=1.0,
         description=(
             "When building the vocabulary, ignore terms that have a document frequency strictly higher "
@@ -202,7 +198,7 @@ class TfidfConfig(BaseModel):
         ),
     )
     min_df: int = Field(
-        default=1,  # Default: term must appear in at least one document.
+        default=1,
         ge=0,
         description=(
             "When building the vocabulary, ignore terms that have a document frequency strictly lower "
@@ -211,7 +207,6 @@ class TfidfConfig(BaseModel):
     )
 
 
-# --- Main SimilarityCalculator Class ---
 class SimilarityCalculatorConfig(BaseModel):
     """
     Configuration for the `SimilarityCalculator` class.
@@ -234,11 +229,9 @@ class SimilarityCalculatorConfig(BaseModel):
         description="An optional list of custom stop words to be added to the default set or used exclusively.",
     )
     tfidf_config: TfidfConfig = Field(
-        default_factory=TfidfConfig,  # Provides default TfidfConfig if not specified.
+        default_factory=TfidfConfig,
         description="Nested configuration object for TF-IDF vectorization parameters.",
     )
-    # bleu_smoothing_function_name: Optional[str] = Field(default=None,
-    #     description="Name of the BLEU smoothing function to use, if applicable.")
 
 
 class SinglePairAnalysisInput(BaseModel):
@@ -263,8 +256,6 @@ class SinglePairAnalysisInput(BaseModel):
         gt=0,
         description="Window radius around k-gram matches for applying Smith-Waterman algorithm.",
     )
-    # Note: Additional parameters specific to other metrics calculated in single_pair_analysis
-    # could be added here if they need to be configurable at this level.
 
 
 class GraphSimilarityOutput(BaseModel):
@@ -412,7 +403,7 @@ class KeywordMatcherConfig(BaseModel):
         description="If True, keywords are extracted based on allowed Part-of-Speech (POS) tags from the source text.",
     )
     allowed_pos_tags: Optional[set[str]] = Field(
-        default=None,  # If None and use_pos_tagging is True, a default set (e.g., nouns, adjectives) might be used.
+        default=None,
         description=(
             "Set of NLTK POS tags to consider for keyword extraction if `use_pos_tagging` is True. "
             "Example: {'NN', 'NNS', 'JJ'}."
@@ -423,7 +414,7 @@ class KeywordMatcherConfig(BaseModel):
         description="A set of custom stop words to be added to (or replace) the default NLTK English stop word list.",
     )
 
-    model_config = ConfigDict(extra="forbid")  # Disallow extra fields not defined in the model.
+    model_config = ConfigDict(extra="forbid")
 
 
 class KeywordMatcherScore(BaseModel):
@@ -455,7 +446,7 @@ class KeywordMatcherScore(BaseModel):
     )
 
 
-class MatcherScores(BaseModel):  # This seems to be a wrapper, perhaps for future expansion or specific use context.
+class MatcherScores(BaseModel):
     """Aggregate detailed results from the keyword matching process."""
 
     matched_keywords: list[str] = Field(
