@@ -66,7 +66,6 @@ except ImportError:
     # For this module, rich is considered highly beneficial for the example's output.
     # If the library part needs to function without rich, this error might be conditional.
     error_message = "Missing rich. Please install it (`pip install rich`) for enhanced logging in the example."
-    raise ImportError(error_message) from None  # 'from None' suppresses the original ImportError context
 
 
 # Configure basic logging. This will be used if the module is imported
@@ -759,4 +758,4 @@ if __name__ == "__main__":
         # Catch any other unexpected errors during the example execution.
         logger.exception("An unexpected error occurred in the example:")
 
-    logger.info("Semantic Similarity Example Finished")
+    logger.info("Semantic Similarity Example finished.")

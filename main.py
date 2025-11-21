@@ -20,20 +20,14 @@ def main() -> EssayScores:
 
     Returns:
         EssayScores: An object containing the calculated scores for the sample essay.
-
     """
-    # Example usage of the score_essay function.
-    # In a real application, these texts would likely come from user input,
-    # a database, or file reading.
     scores = score_essay(
         essay="This is a sample essay text.",
         reference="This is a reference text for comparison.",
     )
-    logging.info(f"Essay scores: {scores}")  # Log the computed scores.
+    logging.info(f"Essay scores: {scores}")
     return scores
 
 
-# This block ensures that main() is called only when the script is executed directly
-# (e.g., `python main.py`), not when it's imported as a module.
 if __name__ == "__main__":
     main()

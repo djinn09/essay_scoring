@@ -15,14 +15,12 @@ from typing import Literal
 
 import spacy
 import yaml
-from dotenv import load_dotenv  # Import python-dotenv
-
-# For Pydantic V2 with pydantic-settings
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # --- Module-level Constants ---
-VALID_ENVS: set[str] = {"dev", "prod"}  # Define valid environments here
+VALID_ENVS: set[str] = {"dev", "prod"}
 
 
 # --- Configuration Models ---
@@ -37,7 +35,6 @@ class AppConfig(BaseModel):
         version (str): The version of the application.
         debug (bool): Flag to enable or disable debug mode.
         log_level (str): The logging level for the application (e.g., INFO, DEBUG).
-
     """
 
     name: str = Field("Essay Grader", description="The name of the application.")
@@ -56,7 +53,6 @@ class SemanticConfig(BaseModel):
         overlap (int): Number of characters to overlap between adjacent chunks.
         batch_size (int): Batch size for encoding texts/chunks with the SentenceTransformer model.
         device (Literal["cpu", "cuda", "mps"]): The hardware device to run the model on.
-
     """
 
     model_name: str = Field("all-MiniLM-L6-v2", description="The name or path of the SentenceTransformer model.")
@@ -74,7 +70,6 @@ class SemanticConfig(BaseModel):
 
         Attributes:
             env_prefix (str): The prefix for environment variables.
-
         """
 
         env_prefix = "SEMANTIC_"
@@ -88,7 +83,6 @@ class SpacyConfig(BaseModel):
         model_name (str): The name or path of the spaCy model to load (e.g., "en_core_web_sm").
         batch_size (int): Batch size for spaCy's NLP processing pipeline if applicable (e.g., nlp.pipe).
         device (Literal["cpu", "cuda"]): The preferred hardware device for spaCy ('cpu' or 'cuda' if available).
-
     """
 
     model_name: str = Field(
@@ -104,7 +98,6 @@ class SpacyConfig(BaseModel):
 
         Attributes:
             env_prefix (str): The prefix for environment variables.
-
         """
 
         env_prefix = "SPACY_"
@@ -118,7 +111,7 @@ class Settings(BaseSettings):
         env (str): The environment to run in (dev, prod, etc.).
         app (AppConfig): Application configuration.
         semantic (SemanticConfig): Semantic similarity configuration.
-
+        spacy_config (SpacyConfig): SpaCy model configuration.
     """
 
     env: str = "dev"
@@ -126,26 +119,17 @@ class Settings(BaseSettings):
     semantic: SemanticConfig = SemanticConfig()
     spacy_config: SpacyConfig = SpacyConfig()
     model_config = SettingsConfigDict(
-        env_file=None,  # Explicitly disable default .env loading by pydantic-settings
-        # if we manually load first.
+        env_file=None,
         env_file_encoding="utf-8",
-        env_nested_delimiter="__",  # For loading nested Pydantic models from env vars like APP__DEBUG=True
-        extra="ignore",  # Ignore extra fields from environment or YAML not defined in the model.
+        env_nested_delimiter="__",
+        extra="ignore",
     )
 
-    # Note: Placing logic like spacy.prefer_gpu() directly in the class body like this
-    # means it executes when the class is defined. This might be too early if `spacy_config`
-    # itself is meant to be loaded from env/YAML.
-    # A better place might be after settings are fully loaded, or in an __init__ if conditional.
-    # However, Pydantic BaseSettings usually don't have complex __init__.
-    # For now, this reflects the original structure.
-    if spacy_config.device == "cuda":  # This check uses the default SpacyConfig.device value here.
+    if spacy_config.device == "cuda":
         spacy.prefer_gpu()  # type: ignore # noqa: PGH003
-    # --- Load SpaCy Model (used for both coreference resolution and POS similarity scoring) ---
-    # This model loading is done at import time of this config module.
 
-    @field_validator("env")  # Validates the 'env' field after it's populated.
-    @classmethod  # Needs to be a classmethod for Pydantic v2 validators.
+    @field_validator("env")
+    @classmethod
     def check_env_is_valid(cls, v: str) -> str:
         """
         Validate the env field and ensure it is a valid environment.
@@ -158,7 +142,6 @@ class Settings(BaseSettings):
 
         Returns:
             str: The validated environment.
-
         """
         env_lower = v.lower()
         if env_lower not in VALID_ENVS:
@@ -171,7 +154,13 @@ class Settings(BaseSettings):
 
 
 def _load_env_file(effective_env: str, config_dir: Path) -> None:
-    """Load environment-specific .env file."""
+    """
+    Load environment-specific .env file.
+
+    Args:
+        effective_env (str): The current environment (e.g., 'dev').
+        config_dir (Path): The directory containing config files.
+    """
     env_filename = f"{effective_env}.env"
     env_file_path = config_dir / env_filename
     if env_file_path.exists() and env_file_path.is_file():
@@ -182,7 +171,16 @@ def _load_env_file(effective_env: str, config_dir: Path) -> None:
 
 
 def _load_yaml_config(effective_env: str, config_dir: Path) -> dict:
-    """Load YAML configuration file."""
+    """
+    Load YAML configuration file.
+
+    Args:
+        effective_env (str): The current environment.
+        config_dir (Path): The directory containing config files.
+
+    Returns:
+        dict: The loaded YAML configuration as a dictionary.
+    """
     yaml_config_path = config_dir / "envs" / f"{effective_env}.yaml"
     file_config = {}
     if yaml_config_path.exists():
@@ -204,7 +202,14 @@ def _load_yaml_config(effective_env: str, config_dir: Path) -> dict:
 
 
 def _validate_and_log_env_settings(settings: Settings, effective_env: str, file_config: dict) -> None:
-    """Validate and log environment settings."""
+    """
+    Validate and log environment settings.
+
+    Args:
+        settings (Settings): The loaded settings object.
+        effective_env (str): The environment used for loading.
+        file_config (dict): The configuration loaded from the YAML file.
+    """
     if settings.env != effective_env and (
         "env" not in file_config or file_config.get("env", "").lower() != settings.env.lower()
     ):
@@ -218,14 +223,21 @@ def _validate_and_log_env_settings(settings: Settings, effective_env: str, file_
         and "env" in file_config
         and file_config.get("env", "").lower() == settings.env.lower()
     ):
-        pass  # YAML explicitly set it, already warned.
+        pass
     else:
         logging.info(f"Settings.env correctly reflects loading environment: '{settings.env}'")
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Load settings."""
+    """
+    Load settings.
+
+    Determines the environment, loads .env and YAML files, and returns a Settings object.
+
+    Returns:
+        Settings: The initialized application settings.
+    """
     effective_env = os.getenv("APP_ENV", "dev").lower()
     if effective_env not in VALID_ENVS:
         logging.info(f"Warning: APP_ENV='{effective_env}' is not one of {VALID_ENVS}. Falling back to 'dev'.")
@@ -264,18 +276,8 @@ def get_settings() -> Settings:
         raise SystemExit(msg) from e
 
 
-# Create a global settings instance.
-# This line will execute `get_settings()` when the `config.py` module is imported,
-# making the settings available globally as `config.settings`.
 settings = get_settings()
 
-# Load spaCy model globally upon import, using the loaded settings.
-# This is a significant side effect for a configuration module.
-# It means importing `config` anywhere will trigger this model loading.
-# If the model is large or loading is slow, this can impact startup time
-# or test execution if tests import modules that eventually import `config`.
-# Consider deferring model loading to where it's explicitly needed,
-# e.g., within an application context or service initializer.
 try:
     spacy_model = spacy.load(settings.spacy_config.model_name)
     logging.info(f"spaCy model '{settings.spacy_config.model_name}' loaded successfully at import time.")
@@ -285,8 +287,8 @@ except OSError:
         "spaCy-dependent features will not be available. "
         "Ensure the model is downloaded (e.g., python -m spacy download en_core_web_sm).",
     )
-    spacy_model = None  # Ensure spacy_model is defined even if loading fails.
-except Exception:  # Catch any other unexpected errors
+    spacy_model = None
+except Exception:
     logging.exception(
         f"An unexpected error occurred while loading spaCy model '{settings.spacy_config.model_name}' at import time.",
     )
@@ -295,9 +297,7 @@ except Exception:  # Catch any other unexpected errors
 
 # --- Example Usage (only runs if script is executed directly) ---
 if __name__ == "__main__":
-    # --- Setup for Example ---
     logging.info("--- Running Example ---")
-    # Simulate setting the environment variable that controls which .env and .yaml to load
     os.environ["APP_ENV"] = "dev"
     logging.info(f"APP_ENV set to: {os.getenv('APP_ENV')}")
 
@@ -305,37 +305,30 @@ if __name__ == "__main__":
     envs_yaml_dir = script_dir / "envs"
     envs_yaml_dir.mkdir(exist_ok=True)
 
-    # Create dummy dev.yaml
     dev_yaml_path = envs_yaml_dir / "dev.yaml"
     with dev_yaml_path.open("w") as f:
         yaml.dump(
             {
-                "app": {"debug": True, "name": "App Name from dev.yaml"},  # YAML highest prio for these
+                "app": {"debug": True, "name": "App Name from dev.yaml"},
                 "semantic": {"model_name": "model-from-dev-yaml"},
-                # "env": "prod" # Test case: YAML overrides APP_ENV for the settings.env field
             },
             f,
         )
     logging.info(f"Created dummy file: {dev_yaml_path}")
 
-    # Create dummy dev.env file (in script directory)
     dev_env_path = script_dir / "dev.env"
     with dev_env_path.open("w") as f:
         f.write('APP__VERSION="1.1-from-dev.env"\n')
         f.write("SEMANTIC__BATCH_SIZE=70\n")
-        f.write('APP__NAME="App Name from dev.env"\n')  # Will be overridden by YAML
+        f.write('APP__NAME="App Name from dev.env"\n')
     logging.info(f"Created dummy file: {dev_env_path}")
 
-    # Simulate setting *actual* process environment variables
-    # (these override .env file if load_dotenv(override=False))
-    # To test .env override, comment these out or set override=True in load_dotenv
     os.environ["APP__VERSION"] = "1.2-from-PROCESS-ENV"
     os.environ["SEMANTIC__DEVICE"] = "cuda"
     logging.info("Simulated PROCESS environment variables set:")
-    logging.info(f"  APP__VERSION={os.getenv('APP__VERSION')}")  # Should win over dev.env's APP__VERSION
+    logging.info(f"  APP__VERSION={os.getenv('APP__VERSION')}")
     logging.info(f"  SEMANTIC__DEVICE={os.getenv('SEMANTIC__DEVICE')}")
 
-    # --- logging.info Final Settings ---
     logging.info("\n--- Final Settings ---")
     if settings:
         logging.info(f"Settings.env: {settings.env}")
@@ -346,16 +339,6 @@ if __name__ == "__main__":
         logging.info(f"Semantic Batch Size: {settings.semantic.batch_size}")
         logging.info(f"Semantic Device: {settings.semantic.device}")
 
-    # Expected with default load_dotenv(override=False):
-    # Settings.env: dev (from APP_ENV, as not overridden by YAML in this test setup)
-    # App Name: App Name from dev.yaml (YAML overrides dev.env and PROCESS-ENV for 'name')
-    # App Version: 1.2-from-PROCESS-ENV (PROCESS-ENV overrides dev.env)
-    # App Debug: True (from dev.yaml)
-    # Semantic Model: model-from-dev-yaml (from dev.yaml)
-    # Semantic Batch Size: 70 (from dev.env, as not in YAML or PROCESS-ENV)
-    # Semantic Device: cuda-from-PROCESS-ENV (from PROCESS-ENV, overrides model default)
-
-    # --- Clean up ---
     logging.info("\n--- Cleaning up dummy files ---")
     dev_yaml_path.unlink(missing_ok=True)
     from contextlib import suppress
@@ -364,12 +347,11 @@ if __name__ == "__main__":
         envs_yaml_dir.rmdir()
     dev_env_path.unlink(missing_ok=True)
     if "APP_ENV" in os.environ:
-        del os.environ["APP_ENV"]  # Clean up this test specific one
+        del os.environ["APP_ENV"]
     if "APP__VERSION" in os.environ:
         del os.environ["APP__VERSION"]
     if "SEMANTIC__DEVICE" in os.environ:
         del os.environ["SEMANTIC__DEVICE"]
-    # If APP__NAME was set in process env for testing, clean it too
     if "APP__NAME" in os.environ:
         del os.environ["APP__NAME"]
     logging.info("Cleanup complete.")

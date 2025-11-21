@@ -45,25 +45,14 @@ try:
     _rich_available = True
 except ImportError:
     _rich_available = False
-    # Let's make rich optional for the core library, but required for the example's nice output
-    # raise ImportError("Missing rich...") # Rich is optional for the library's core functionality
 
 
 logger = logging.getLogger(__name__)
 
-# Attempt to load the model once when the module is imported.
-# This makes it available globally within this module.
-# Users of the AMRSimilarityCalculator class will pass this pre-loaded model.
-# Consider making the model path configurable via environment variable or a config file
-# for more flexibility, instead of hardcoding.
-# For now, this path is a placeholder and would need to be valid in the execution environment.
 MAX_TEXT_SAMPLE_LENGTH = 100
 try:
     # IMPORTANT: The model_dir path below is currently hardcoded.
     # Users should modify this path to point to their downloaded amrlib model directory.
-    # For more robust applications, this path should be made configurable,
-    # for example, via an environment variable, a configuration file, or by
-    # modifying AMRSimilarityCalculator to accept a model path if it were to handle loading.
     STOG_MODEL = amrlib.load_stog_model(
         model_dir="/mnt/e/Machine_learning/NLP-Revise/essay_grading/model_parse_xfm_bart_base-v0_1_0",  # Example path
         device="cpu",  # Default to CPU, can be changed if GPU is available
@@ -78,7 +67,6 @@ except Exception:
 
 
 # Placeholder concept used when a negation is detected but not associated with a specific concept.
-# A more advanced implementation would identify the actual negated concept.
 NEGATION_PLACEHOLDER = "HAS_NEGATION"
 
 
@@ -91,18 +79,6 @@ class AMRSimilarityCalculator:
 
     Requires a pre-loaded `amrlib` parsing model (StoG - Stack-Transformer).
     The model should be passed during instantiation.
-
-    Calculated Features:
-    - Smatch (F-score, Precision, Recall): Measures structural similarity between AMR graphs.
-    - Concept Overlap (Jaccard Index): Similarity based on common concepts (nodes and literals).
-    - Named Entity Overlap (Jaccard Index): Similarity based on common named entities
-      (identified by :name or :wiki links).
-    - Negation Overlap (Jaccard Index): Checks for presence of negations
-      (currently a simplified check).
-    - Root Concept Similarity: Checks if the main concepts (roots) of the AMR
-      graphs are the same.
-
-    Future features could include similarity based on frames, semantic roles, reentrancies, etc.
     """
 
     def __init__(self, stog_model: StoG) -> None:
@@ -110,21 +86,17 @@ class AMRSimilarityCalculator:
         Initialize AMRSimilarityCalculator with a pre-loaded `amrlib` StoG model.
 
         Args:
-            stog_model: A pre-loaded `amrlib` Stack-Transformer (StoG) parsing model object.
+            stog_model (StoG): A pre-loaded `amrlib` Stack-Transformer (StoG) parsing model object.
                 This model is used to parse text into AMR graphs.
 
         Raises:
             ValueError: If `stog_model` is not provided (is None).
-
         """
         if not stog_model:
             msg = "A pre-loaded AMR StoG model (stog_model) is required."
             raise ValueError(msg)
         self.stog_model = stog_model
         logger.info("AMRSimilarityCalculator initialized with provided StoG model.")
-
-    # _load_models method was removed as the model is now expected to be pre-loaded and passed to __init__.
-    # This simplifies the class and makes model management more explicit for the user.
 
     def _parse_amr(self, text: str) -> Optional[str]:
         """
@@ -142,7 +114,6 @@ class AMRSimilarityCalculator:
             Optional[str]: The AMR graph in PENMAN string format for the first successfully
                            parsed sentence, or None if parsing fails, the text is empty,
                            or the model is not available.
-
         """
         if not self.stog_model:
             logger.error("StoG model not available for AMR parsing.")
@@ -152,26 +123,18 @@ class AMRSimilarityCalculator:
             return None
 
         try:
-            # Naive sentence splitting. amrlib's parse_sents expects a list of sentences.
-            # For robust parsing, use a proper sentence tokenizer (e.g., from NLTK or spaCy)
-            # before calling this method, or integrate it here.
             sentences = [s.strip() for s in text.split(".") if s.strip()]
             if not sentences:
                 logger.warning("No sentences found after splitting input text.")
                 return None
 
-            # Parse sentences into AMR graphs (PENMAN format).
-            # `parse_sents` returns a list of PENMAN strings, one for each sentence.
             graphs_penman = self.stog_model.parse_sents(sentences)
 
-            # For simplicity, this implementation currently uses only the AMR graph
-            # of the first sentence. A more comprehensive approach might involve merging
-            # graphs or processing them individually, depending on the use case.
             if graphs_penman and graphs_penman[0]:
                 return graphs_penman[0]
             logger.warning("AMR parsing did not yield a graph for the first sentence.")
             return None
-        except Exception:  # Catching a broad exception as amrlib can raise various errors.
+        except Exception:
             logger.exception(f"AMR parsing failed for text '{text[:50]}...'.")
             return None
 
@@ -193,49 +156,31 @@ class AMRSimilarityCalculator:
 
         Raises:
             penman.DecodeError: If the penman library fails to decode the graph string.
-
         """
         concepts = set()
         if not penman_graph_str:
             return concepts
         try:
             graph = penman.decode(penman_graph_str)
-            # `graph.variables()` returns all variables like 'd', 'g', 't' in `(d / dog)`
             variables = graph.variables()
 
-            # 1. Extract concepts from instance declarations (e.g., 'dog' in `(d / dog)`).
-            # An instance is a triple (variable, concept, role), e.g., ('d', 'dog', None).
             for _var, concept_label, _role in graph.instances():
-                if concept_label:  # Ensure the concept label exists.
+                if concept_label:
                     concepts.add(str(concept_label))
 
-            # 2. Extract constants that appear as targets in graph edges.
-            # An edge is a triple (source_variable, role, target_variable_or_constant).
-            # Example: `(c / city :name (n / name :op1 "London"))` -> "London" is a constant.
-            # Example: `(d / dog :color "blue")` -> "blue" is a constant target in an attribute-like edge.
-            # Penman's `edges()` and `attributes()` can sometimes overlap in what they
-            # represent based on AMR structure. We iterate through both to be comprehensive.
             for _source_var, _role, target in graph.edges():
-                # If the target is not a variable within this graph, it's considered a constant.
                 if target not in variables:
-                    # Constants are often string literals (e.g., "\"blue\"") or numbers.
-                    # `penman` preserves quotes for string literals; strip them for the concept set.
                     constant_val = str(target).strip('"')
                     concepts.add(constant_val)
 
-            # 3. Extract constants that appear as targets in graph attributes.
-            # An attribute is similar to an edge but typically points to a literal.
-            # Example: `(q / quantity :value 5)` -> 5 is a constant.
             for _source_var, _role, target in graph.attributes():
-                # If the target is not a variable, it's a constant.
                 if target not in variables:
                     constant_val = str(target).strip('"')
                     concepts.add(constant_val)
 
         except penman.DecodeError:
             logger.exception(f"Penman library failed to decode graph for concept extraction:\n{penman_graph_str}")
-            # Re-raise or handle as per desired error strategy; here, we log and return current concepts.
-        except Exception:  # Catch other potential errors during processing.
+        except Exception:
             logger.exception(f"Error processing graph concepts with penman library.\nGraph:\n{penman_graph_str}")
         return concepts
 
@@ -243,15 +188,10 @@ class AMRSimilarityCalculator:
         """
         Extract named entities from an AMR graph string.
 
-        Named entities are typically identified by `:wiki` links (pointing to Wikipedia
-        titles, often represented as string constants like `"-"` if not linked) or
-        by `:name` relations which might point to a `name` instance with operations
-        (e.g., `(n / name :op1 "John" :op2 "Doe")`).
-
+        Named entities are typically identified by `:wiki` links or by `:name` relations.
         This implementation primarily extracts string literals connected via `:wiki`
         and treats them as named entities. It also extracts string literals from `:name`
-        edges if they are direct constants. A more sophisticated NE extraction might
-        involve resolving `name` subgraphs.
+        edges if they are direct constants.
 
         Args:
             penman_graph_str (str): The AMR graph in PENMAN string format.
@@ -259,10 +199,6 @@ class AMRSimilarityCalculator:
         Returns:
             set[str]: A set of unique named entity strings. Returns an empty set if the
                       input is empty or parsing/processing fails.
-
-        Raises:
-            penman.DecodeError: If the penman library fails to decode the graph string.
-
         """
         nes = set()
         if not penman_graph_str:
@@ -271,32 +207,17 @@ class AMRSimilarityCalculator:
             graph = penman.decode(penman_graph_str)
             variables = graph.variables()
 
-            # Look for :wiki or :name relations in attributes.
-            # Attributes usually link a variable to a literal (constant).
             for _source_var, role, target in graph.attributes():
-                # `:wiki -` means no specific Wikipedia page is linked.
                 if role == ":wiki" and target != "-":
-                    # Target of :wiki should be a constant (the entity name or link).
                     nes.add(str(target).strip('"'))
-                # Handling :name when it directly points to a constant string.
-                # Example: (c / country :name "Wonderland")
                 elif role == ":name" and target not in variables:
                     nes.add(str(target).strip('"'))
 
-            # Look for :wiki or :name relations in edges.
-            # Edges can link variables or a variable to a constant.
-            # This is important if a :wiki or :name relation points to a string constant directly.
             for _source_var, role, target in graph.edges():
                 if role == ":wiki" and target != "-" and target not in variables:
-                    # Ensure target is a constant (not another variable in the graph).
                     nes.add(str(target).strip('"'))
-                # If :name points to a constant target in an edge.
-                # Example: (p / person :name "Alice")
                 elif role == ":name" and target not in variables:
                     nes.add(str(target).strip('"'))
-                # More complex :name handling (e.g., `(p / person :name (n / name :op1 "Alice"))`)
-                # would require traversing to the `name` instance `n` and collecting its :op parts.
-                # This is currently not implemented for simplicity.
 
         except penman.DecodeError:
             logger.exception(f"Penman library failed to decode graph for NE extraction:\n{penman_graph_str}")
@@ -310,12 +231,6 @@ class AMRSimilarityCalculator:
 
         This method currently uses a simplified approach, checking for the literal
         string ':polarity -' in the PENMAN graph, and returns a placeholder concept if found.
-        It does not perform full graph parsing to accurately identify negated concepts.
-
-        A more robust implementation would involve:
-        1.  Properly parsing the graph using the `penman` library.
-        2.  Traversing the graph to find instances of `:polarity -`.
-        3.  Identifying the specific concept or variable that is being negated.
 
         Args:
             penman_graph_str (str): The AMR graph in PENMAN string format.
@@ -323,33 +238,17 @@ class AMRSimilarityCalculator:
         Returns:
             set[str]: A set containing `NEGATION_PLACEHOLDER` if `:polarity -` is found,
                       otherwise an empty set.
-
         """
         negated_concepts = set()
         if not penman_graph_str:
             return negated_concepts
 
         try:
-            # Current simplified check: looks for the literal string ":polarity -" in the PENMAN graph.
-            # This is a basic proxy for negation detection and is less robust than full graph parsing.
-            # A more accurate method would use the penman library to parse the graph and
-            # then identify nodes/edges explicitly indicating negation (e.g., as shown
-            # in the commented-out example below).
             if ":polarity -" in penman_graph_str:
                 negated_concepts.add(NEGATION_PLACEHOLDER)
-                # Example of how to use penman to find negated concepts (more robust):
-                # graph = penman.decode(penman_graph_str)
-                # for var, role, value in graph.attributes(): # Or graph.edges() depending on structure
-                #     if role == ':polarity' and value == '-':
-                #         # `var` is the variable associated with the negation.
-                #         # Find the concept of `var`
-                #         for inst_var, concept, _ in graph.instances():
-                #             if inst_var == var:
-                #                 negated_concepts.add(str(concept)) # Or var itself
-                #                 break
         except penman.DecodeError:
             logger.exception(f"Penman library failed to decode graph for negation detection:\n{penman_graph_str}")
-        except Exception:  # Catch other potential errors.
+        except Exception:
             logger.exception(f"Error parsing negations from PENMAN string.\nGraph:\n{penman_graph_str}")
         return negated_concepts
 
@@ -358,7 +257,6 @@ class AMRSimilarityCalculator:
         Extract the concept of the root node from an AMR graph string.
 
         The root of the graph is indicated by `graph.top` in the `penman` library.
-        This method finds the instance declaration corresponding to this top variable.
 
         Args:
             penman_graph_str (str): The AMR graph in PENMAN string format.
@@ -367,28 +265,21 @@ class AMRSimilarityCalculator:
             Optional[str]: The concept string of the root node (e.g., "want-01"),
                            or None if the root cannot be determined, the input is empty,
                            or parsing fails.
-
-        Raises:
-            penman.DecodeError: If the penman library fails to decode the graph string.
-
         """
         if not penman_graph_str:
             return None
         try:
             graph = penman.decode(penman_graph_str)
-            # `graph.top` gives the variable name of the root node (e.g., 'w').
             top_variable = graph.top
             if top_variable is None:
                 logger.warning(f"Graph has no designated top variable: {penman_graph_str}")
                 return None
 
-            # Find the instance declaration for the top variable to get its concept.
-            # An instance is a triple (variable, concept, role).
             for var, concept_label, _role in graph.instances():
                 if var == top_variable:
-                    return str(concept_label)  # Return the concept label as string.
+                    return str(concept_label)
             logger.warning(f"Root concept not found for top variable '{top_variable}' in graph:\n{penman_graph_str}")
-            return None  # Should ideally not happen if top_variable is valid and in instances.
+            return None
         except penman.DecodeError:
             logger.exception(f"Penman library failed to decode graph for root concept extraction:\n{penman_graph_str}")
             return None
@@ -413,8 +304,6 @@ class AMRSimilarityCalculator:
             (e.g., "smatch_fscore", "concept_jaccard") and values are the calculated
             similarity scores as floats. If a specific feature calculation fails or
             if AMR parsing fails for either text, the corresponding value will be None.
-            The dictionary also includes placeholders for features not yet implemented.
-
         """
         results: dict[str, Optional[float]] = {
             "smatch_fscore": None,
@@ -422,20 +311,19 @@ class AMRSimilarityCalculator:
             "smatch_recall": None,
             "concept_jaccard": None,
             "named_entity_jaccard": None,
-            "negation_jaccard": None,  # Based on placeholder detection
+            "negation_jaccard": None,
             "root_similarity": None,
-            # Placeholders for features that could be implemented in the future
             "frame_similarity": None,
             "srl_similarity": None,
             "reentrancy_similarity": None,
             "degree_similarity": None,
             "quantifier_similarity": None,
-            "wlk_similarity": None,  # Weisfeiler-Lehman Kernel or similar graph kernel
+            "wlk_similarity": None,
         }
 
         if not self.stog_model:
             logger.error("AMR StoG model not loaded. Cannot calculate AMR features.")
-            return results  # Return dictionary with all Nones
+            return results
 
         logger.info("Parsing Text 1 for AMR...")
         amr1_penman = self._parse_amr(text1)
@@ -444,7 +332,6 @@ class AMRSimilarityCalculator:
 
         if not amr1_penman or not amr2_penman:
             logger.error("AMR parsing failed for one or both texts. Some features may be unavailable.")
-            # We can still return the results dict; features that couldn't be computed will remain None.
             return results
 
         self._calculate_smatch(amr1_penman, amr2_penman, results)
@@ -457,7 +344,14 @@ class AMRSimilarityCalculator:
         return results
 
     def _calculate_smatch(self, amr1_penman: str, amr2_penman: str, results: dict[str, Optional[float]]) -> None:
-        """Calculate Smatch scores and update the results dictionary."""
+        """
+        Calculate Smatch scores and update the results dictionary.
+
+        Args:
+            amr1_penman (str): The first AMR graph in PENMAN format.
+            amr2_penman (str): The second AMR graph in PENMAN format.
+            results (dict[str, Optional[float]]): The dictionary to update with results.
+        """
         try:
             precision, recall, f_score = compute_smatch([amr1_penman], [amr2_penman])
             results["smatch_fscore"] = f_score
@@ -473,7 +367,14 @@ class AMRSimilarityCalculator:
         amr2_penman: str,
         results: dict[str, Optional[float]],
     ) -> None:
-        """Calculate concept overlap and update the results dictionary."""
+        """
+        Calculate concept overlap (Jaccard) and update the results dictionary.
+
+        Args:
+            amr1_penman (str): The first AMR graph in PENMAN format.
+            amr2_penman (str): The second AMR graph in PENMAN format.
+            results (dict[str, Optional[float]]): The dictionary to update with results.
+        """
         try:
             concepts1 = self._get_graph_concepts(amr1_penman)
             concepts2 = self._get_graph_concepts(amr2_penman)
@@ -495,7 +396,14 @@ class AMRSimilarityCalculator:
         amr2_penman: str,
         results: dict[str, Optional[float]],
     ) -> None:
-        """Calculate named entity overlap and update the results dictionary."""
+        """
+        Calculate named entity overlap (Jaccard) and update the results dictionary.
+
+        Args:
+            amr1_penman (str): The first AMR graph in PENMAN format.
+            amr2_penman (str): The second AMR graph in PENMAN format.
+            results (dict[str, Optional[float]]): The dictionary to update with results.
+        """
         try:
             ne1 = self._get_named_entities(amr1_penman)
             ne2 = self._get_named_entities(amr2_penman)
@@ -517,7 +425,14 @@ class AMRSimilarityCalculator:
         amr2_penman: str,
         results: dict[str, Optional[float]],
     ) -> None:
-        """Calculate negation overlap and update the results dictionary."""
+        """
+        Calculate negation overlap and update the results dictionary.
+
+        Args:
+            amr1_penman (str): The first AMR graph in PENMAN format.
+            amr2_penman (str): The second AMR graph in PENMAN format.
+            results (dict[str, Optional[float]]): The dictionary to update with results.
+        """
         try:
             neg1 = self._get_negations(amr1_penman)
             neg2 = self._get_negations(amr2_penman)
@@ -540,7 +455,14 @@ class AMRSimilarityCalculator:
         amr2_penman: str,
         results: dict[str, Optional[float]],
     ) -> None:
-        """Calculate root similarity and update the results dictionary."""
+        """
+        Calculate root similarity and update the results dictionary.
+
+        Args:
+            amr1_penman (str): The first AMR graph in PENMAN format.
+            amr2_penman (str): The second AMR graph in PENMAN format.
+            results (dict[str, Optional[float]]): The dictionary to update with results.
+        """
         try:
             root1 = self._get_root_concept(amr1_penman)
             root2 = self._get_root_concept(amr2_penman)
@@ -669,7 +591,7 @@ if __name__ == "__main__":
                     if _use_rich_logging and (
                         "score" in feature_name or "similarity" in feature_name or "jaccard" in feature_name
                     ):
-                        color = "green" if feature_value > 0.6 else "yellow" if feature_value > 0.2 else "red"  # noqa: PLR2004
+                        color = "green" if feature_value > 0.6 else "yellow" if feature_value > 0.2 else "red"
                         logger.info(f"  {feature_name}: [{color}]{feature_value:.4f}[/{color}]")
                     else:
                         logger.info(f"  {feature_name}: {feature_value:.4f}")  # Standard float formatting
